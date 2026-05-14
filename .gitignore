@@ -7,9 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
+frontend/node_modules
 dist
 dist-ssr
+frontend/.vite
 *.local
 
 # Editor directories and files
@@ -24,5 +25,6 @@ dist-ssr
 *.sw?
 
 # Data files
-src/data.json
-src/sigma.json
+frontend/src/data.json
+frontend/src/sigma.json
+
