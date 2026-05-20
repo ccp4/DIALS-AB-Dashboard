@@ -24,7 +24,12 @@ frontend/.vite
 *.sln
 *.sw?
 
-# Data files
+# Frontend
 frontend/src/data.json
 frontend/src/sigma.json
+
+# Backend
+backend/.env
+__pycache__
+backend/venv/
 
