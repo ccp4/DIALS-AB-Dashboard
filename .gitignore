@@ -32,4 +32,4 @@ frontend/src/sigma.json
 backend/.env
 __pycache__
 backend/venv/
-
+backend/storage/processed_runs
