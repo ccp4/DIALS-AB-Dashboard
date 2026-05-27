@@ -33,3 +33,4 @@ backend/.env
 __pycache__
 backend/venv/
 backend/storage/processed_runs
+test.py

@@ -1,6 +1,7 @@
 from workspace.factory import get_workspace
 from storage.local import FileSystemRunRepository
-from runs.xia2_processor import process_xia2_raw, process_xia2_memory, process_xia2_comparison
+from runs.xia2_extractor import extract_xia2_raw, extract_xia2_memory, extract_xia2_comparison
+from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data
 
 class RunService:
     def __init__(self):
@@ -33,22 +34,25 @@ class RunService:
         key = f"{run_id}/raw"
         # if self.repo.exists(key):
         #     return self.repo.load(key)
-        data = process_xia2_raw(self.workspace, run_id)
+        data = extract_xia2_raw(self.workspace, run_id)
         self.repo.save(key, data)
-        return data
+        clean = clean_xia2_data(data)
+        return process_xia2_data(clean)
 
     def get_xia2_comparison(self, run_id: str):
         key = f"{run_id}/comparison"
-        data = process_xia2_comparison(self.workspace, run_id)
+        data = extract_xia2_comparison(self.workspace, run_id)
         self.repo.save(key, data)
-        return data
+        clean = clean_xia2_data(data)
+        return process_xia2_data(clean)
     
     def get_xia2_memory(self, run_id: str):
         key = f"{run_id}/memory"
-        data = process_xia2_memory(self.workspace, run_id)
+        data = extract_xia2_memory(self.workspace, run_id)
         self.repo.save(key, data)
-        return data
+        return process_xia2_memory_data(data)
 
     def run_exists(self, run_id: str):
         return self.workspace.exists(f"{run_id}/{self.xia_marker}")
+    
         

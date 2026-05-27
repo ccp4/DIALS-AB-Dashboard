@@ -1,72 +1,76 @@
-from pathlib import Path
-from workspace.base import Workspace
-import json
-import re
+# TODO
+# Clean data
+# Build returnable series
+# Front-end can then recieve it
+# And submit data processing requests
 
-def process_xia2_raw(workspace: Workspace, run_id: str) -> dict:
-    return _process_json_files(
-        workspace,
-        run_id,
-         [
-            "dials.estimate_resolution-A.json",
-            "dials.estimate_resolution-B.json"
-        ]
-    )
+def _clean_trace_data(raw_data):
+    cleaned = []
 
-def process_xia2_comparison(workspace: Workspace, run_id: str) -> dict:
-    return _process_json_files(
-        workspace,
-        run_id,
-        ["xia2.compare_merging_stats.json"],
-    )
+    for item in raw_data:
+        if not item:
+            continue
+        if "x" not in item or "y" not in item:
+            continue
+        if len(item["x"]) != len(item["y"]):
+            print("AAAAAAAAAAAAARRGGHHHHHH")
+            continue
+        cleaned.append(item)
 
+    return cleaned
 
-def process_xia2_memory(workspace: Workspace, run_id: str) -> dict:
-    return _process_memory_files(
-        workspace,
-        run_id,
-        ["peak_memory.txt"],
-    )
+def clean_xia2_data(raw_data: dict) -> dict:
+    # remove empty data points and note singleton values
+    # majority is 50,50 2,2
 
+    # remove empty sets
+    for run, files in raw_data.items():
+        for file, traces in files.items():
+            for trace_name, trace_obj in traces.items():
 
-def _top_dir(path: Path) -> str:
-    return path.parts[1] if len(path.parts) > 1 else "overall"
+                trace_obj["data"] = _clean_trace_data(
+                    trace_obj.get("data", [])
+                )
 
-def _process_json_files(workspace: Workspace, run_id: str, names: list[str]) -> dict:
-    files = workspace.list_files(workspace.resolve(run_id))
-    wanted = set(names)
+    return raw_data
 
+def process_xia2_memory_data(raw_data: dict) -> dict:
+    series_map = {}
+
+    # initialize keys (A, B, etc.)
+    for inner in raw_data.values():
+        for series_name in inner.keys():
+            series_map.setdefault(series_name, [])
+
+    # build (x, y) pairs
+    for x_key, inner in raw_data.items():
+        for series_name, y_value in inner.items():
+            series_map[series_name].append([x_key, y_value])
+
+    return series_map
+
+def process_xia2_data(raw_data: dict) -> dict:
     result = {}
 
-    for f in files:
-        if f.name not in wanted:
-            continue
+    for run, files in raw_data.items():
+        result[run] = {}
 
-        td = _top_dir(f)
-        result.setdefault(td, {})
-        result[td][f.name] = json.loads(workspace.read_text(f))
+        for file, traces in files.items():
+            result[run][file] = {}
+
+            for trace_name, trace_obj in traces.items():
+                result[run][file][trace_name] = []
+
+                for variant in trace_obj["data"]:
+
+                    series = _apache_series_builder(variant)
+                    result[run][file][trace_name].append(series)
 
     return result
 
+def _apache_series_builder(data: dict) -> dict:
 
-def _process_memory_files(workspace: Workspace, run_id: str, names: list[str]) -> dict:
-    pattern = re.compile(r"[-+]?\d*\.\d+|\d+")
-
-    files = workspace.list_files(workspace.resolve(run_id))
-    wanted = set(names)
-
-    result = {}
-
-    for f in files:
-        if f.name not in wanted:
-            continue
-
-        td = _top_dir(f)
-        matches = pattern.findall(workspace.read_text(f))
-        value = float(matches[-1]) if matches else None
-
-        result.setdefault(td, {})
-        # Differentiate between the peak memory values in the A vs B folder
-        result[td][f.parent.name] = value
-
-    return result
+    return {
+        "name": data["name"],
+        "data": [[x, y] for x, y in zip(data["x"], data["y"])]
+    }
