@@ -1,0 +1,26 @@
+{
+  "name": "dials-ab-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard for visualising DIALS A/B testing",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -k -n FRONTEND,BACKEND \"npm --prefix frontend run dev\" \"npm run dev:backend\"",
+
+    "dev:backend": "cd backend && venv/bin/python3 -m uvicorn main:app --reload"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccp4/DIALS-AB-Dashboard.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ccp4/DIALS-AB-Dashboard/issues"
+  },
+  "homepage": "https://github.com/ccp4/DIALS-AB-Dashboard#readme",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}

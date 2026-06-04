@@ -34,43 +34,52 @@ def clean_xia2_data(raw_data: dict) -> dict:
 
     return raw_data
 
-def process_xia2_memory_data(raw_data: dict) -> dict:
-    series_map = {}
+def process_xia2_memory_data(raw_data: dict) -> list[dict]:
+    result = []
 
-    # initialize keys (A, B, etc.)
-    for inner in raw_data.values():
-        for series_name in inner.keys():
-            series_map.setdefault(series_name, [])
+    for label, values in raw_data.items():
+        result.append({
+            "label": label,
+            **values
+        })
 
-    # build (x, y) pairs
-    for x_key, inner in raw_data.items():
-        for series_name, y_value in inner.items():
-            series_map[series_name].append([x_key, y_value])
-
-    return series_map
+    return result
 
 def process_xia2_data(raw_data: dict) -> dict:
     result = {}
 
     for run, files in raw_data.items():
-        result[run] = {}
+        if not result.get(run, {}):
+            result[run] = {}
 
         for file, traces in files.items():
-            result[run][file] = {}
 
             for trace_name, trace_obj in traces.items():
-                result[run][file][trace_name] = []
+                if not result[run].get(trace_name, []):
+                    result[run][trace_name] = []
 
                 for variant in trace_obj["data"]:
 
-                    series = _apache_series_builder(variant)
-                    result[run][file][trace_name].append(series)
+                    series = _apache_series_builder(variant, file)
+                    result[run][trace_name].append(series)
 
     return result
 
-def _apache_series_builder(data: dict) -> dict:
+def _apache_series_builder(data: dict, file: str) -> dict:
+
+    # ERR needs fixup
+    if file == "dials.estimate_resolution-A.json":
+        name = "A - " + data["name"]
+    elif file == "dials.estimate_resolution-B.json":
+        name = "B - " + data["name"]
+    elif file == "xia2.compare_merging_stats.json":
+        name = data["name"]
+    
+    if "sub" in name:
+        name = name.replace("<sub>","")
+        name = name.replace("</sub>", "")
 
     return {
-        "name": data["name"],
+        "name": name,
         "data": [[x, y] for x, y in zip(data["x"], data["y"])]
     }
