@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import ReactECharts from "echarts-for-react";
 import { Autocomplete, TextField } from '@mui/material';
-function RawDataChart({typeOfData}){
+function RawDataChart({typeOfData, run}){
 
     const apiURL = "http://localhost:8000"
     const [rawData, setRawData] = useState({})
@@ -13,7 +13,7 @@ function RawDataChart({typeOfData}){
         const fetchData = async() => {
             try{
                 setLoad(true)
-                const res = await fetch(apiURL + "/runs/run-310326/" + typeOfData)
+                const res = await fetch(apiURL + "/runs/" + run + "/" + typeOfData)
                 if (res.ok) {
                     const data = await res.json()
                     setRawData(data)
@@ -143,7 +143,7 @@ function RawDataChart({typeOfData}){
 
             <ReactECharts
                 option={option}
-                style={{ height: 600, width: "50vw" }}
+                style={{ height: 600, width: "30vw" }}
                 notMerge={true}
                 lazyUpdate={true}
             />

@@ -2,14 +2,14 @@ import { useEffect, useState } from "react"
 import ReactECharts from "echarts-for-react";
 import { Button } from "@mui/material";
 
-function MemoryABChart(){
+function MemoryABChart({ run }){
 
     const apiURL = "http://localhost:8000"
     const [memory, setMemory] = useState([])
     const [sortMode, setSortMode] = useState(false)
 
     useEffect(() => {
-        fetch(apiURL + "/runs/run-310326/memory")
+        fetch(apiURL + "/runs/" + run + "/memory")
         .then((response) => response.json())
         .then((data) => {
             setMemory(data);
