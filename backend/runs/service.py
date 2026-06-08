@@ -1,7 +1,7 @@
 from workspace.factory import get_workspace
 from storage.local import FileSystemRunRepository
 from runs.xia2_extractor import extract_xia2_raw, extract_xia2_memory, extract_xia2_comparison
-from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data
+from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, interpolate_cc_half
 
 class RunService:
     def __init__(self):
@@ -38,6 +38,13 @@ class RunService:
         self.repo.save(key, data)
         clean = clean_xia2_data(data)
         return process_xia2_data(clean)
+    
+    def get_cc_half_points(self, run_id: str, x: float):
+        data = extract_xia2_raw(self.workspace, run_id)
+        clean = clean_xia2_data(data)
+        processed = process_xia2_data(clean)
+
+        return interpolate_cc_half(processed, x)
 
     def get_xia2_comparison(self, run_id: str):
         key = f"{run_id}/comparison"

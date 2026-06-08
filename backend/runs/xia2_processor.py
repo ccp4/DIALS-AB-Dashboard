@@ -1,8 +1,4 @@
-# TODO
-# Clean data
-# Build returnable series
-# Front-end can then recieve it
-# And submit data processing requests
+import numpy as np
 
 def _clean_trace_data(raw_data):
     cleaned = []
@@ -44,6 +40,31 @@ def process_xia2_memory_data(raw_data: dict) -> list[dict]:
         })
 
     return result
+
+def interpolate_cc_half(processed_data: dict, x: float) -> list:
+    result = []
+    for label, values in processed_data.items():
+        temp = { "label" : label}
+        data = values["cc_half"]
+        for item in data:
+            if item["name"] == "A - CC½":
+                temp["A"] = interpolate(item["data"], x)
+            if item["name"] == "B - CC½":
+                temp["B"] = interpolate(item["data"], x)
+        result.append(temp)
+
+    return result
+
+def interpolate(data: list, target: float):
+    arr = np.array(data)
+    # arr = arr[::-1]
+    
+    xs = arr[:,0]
+    ys = arr[:,1]
+
+    y = np.interp(target, xs, ys)
+
+    return y
 
 def process_xia2_data(raw_data: dict) -> dict:
     result = {}

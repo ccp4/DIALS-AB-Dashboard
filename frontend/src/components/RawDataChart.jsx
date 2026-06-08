@@ -143,7 +143,7 @@ function RawDataChart({typeOfData}){
 
             <ReactECharts
                 option={option}
-                style={{ height: 600, width: "30vw" }}
+                style={{ height: 600, width: "50vw" }}
                 notMerge={true}
                 lazyUpdate={true}
             />

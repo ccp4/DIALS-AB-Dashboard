@@ -30,6 +30,13 @@ async def get_raw(run_id: str):
     """
     return service.get_xia2_raw(run_id=run_id)
 
+@router.get("/{run_id}/interpolated")
+async def get_interpolated_points(run_id: str, x: float):
+    """
+    Returns interpolated points at given value for CC_half
+    """
+    return service.get_cc_half_points(run_id=run_id, x=x)
+
 @router.get("/{run_id}/comparison")
 async def get_comparison(run_id: str):
     """
