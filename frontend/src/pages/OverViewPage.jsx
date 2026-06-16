@@ -8,29 +8,32 @@ import RunSelector from "../components/RunSelector";
 import { useState } from "react";
 
 export default function OverViewPage(){
-	const [selectedRun, setSelectedRun] = useState("");
+	const [selectedRuns, setSelectedRuns] = useState([]);
 
 	return(
 		<>
 			<RunSelector
-				value={selectedRun}
-				onChange={setSelectedRun}
+				value={selectedRuns}
+				onChange={setSelectedRuns}
 			/>
-			{ selectedRun && (
+
+			{selectedRuns.length > 0 && (
 				<Grid container spacing={2}>
+					{selectedRuns.map((selectedRun) => (
+					<>
+						<Grid xs={12} md={6} lg={4}>
+							<ChartCard>
+								<MemoryComparisonChart run={selectedRun} />
+							</ChartCard>
+						</Grid>
 
-					<Grid xs={12} md={6} lg={4}>
-						<ChartCard>
-							<MemoryComparisonChart run={selectedRun} />
-						</ChartCard>
-					</Grid>
-
-					<Grid xs={12} md={6} lg={4}>
-						<ChartCard>
-							<MemoryABChart run={selectedRun} />
-						</ChartCard>
-					</Grid>
-
+						<Grid xs={12} md={6} lg={4}>
+							<ChartCard>
+								<MemoryABChart run={selectedRun} />
+							</ChartCard>
+						</Grid>
+					</>
+					))}
 				</Grid>
 			)}
 		</>

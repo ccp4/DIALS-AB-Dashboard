@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
+  TextField,
 } from "@mui/material";
+
 
 function RunSelector({ value, onChange }) {
   const [runs, setRuns] = useState([]);
@@ -40,22 +39,22 @@ function RunSelector({ value, onChange }) {
 
 
   return (
-    <FormControl fullWidth>
-      <InputLabel id="run-select-label">Run</InputLabel>
-
-      <Select
-        labelId="run-select-label"
-        value={value}
-        label="Run"
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {runs.map((run) => (
-          <MenuItem key={run} value={run}>
-            {run}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
+    <>
+      <Autocomplete
+        multiple
+        options={runs}
+        value={value || []}
+        onChange={(event, newValue) => onChange(newValue)}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            variant="standard"
+            label="Run selector"
+            placeholder="Enter runs"
+          />
+        )}
+      />
+  </>
   );
 }
 

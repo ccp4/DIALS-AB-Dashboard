@@ -39,7 +39,7 @@ function MemoryComparisonChart({ run }){
 
     const options = {
         title: {
-            text: "A - B Memory Comparison",
+            text: run + " - A-B Memory Comparison",
             left: "center",
             top: 10,
         }, 

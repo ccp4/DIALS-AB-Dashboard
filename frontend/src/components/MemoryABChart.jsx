@@ -45,7 +45,7 @@ function MemoryABChart({ run }){
 
     const options = {
         title: {
-            text: "Raw AB Memory",
+            text: run + " - Raw AB Memory",
             left: "center",
             top: 10,
         }, 
