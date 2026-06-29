@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { Link, Outlet } from "react-router-dom";
 
-const drawerWidth = 240;
+const drawerWidth = "15vw";
 
 export default function DashboardLayout({ children }) {
   return (

@@ -2,50 +2,62 @@ import { useEffect, useState } from "react"
 import ReactECharts from "echarts-for-react";
 import { Button } from "@mui/material";
 
-function MemoryABChart({ run }){
+function MemoryABChart({ data }){
 
-    const apiURL = "http://localhost:8000"
-    const [memory, setMemory] = useState([])
+    const memory = data
     const [sortMode, setSortMode] = useState(false)
 
-    useEffect(() => {
-        fetch(apiURL + "/runs/" + run + "/memory")
-        .then((response) => response.json())
-        .then((data) => {
-            setMemory(data);
-        })
-        .catch((err) => {console.log(err.message)});
-    }, [])
+    const runs = Object.keys(data)
 
+    const firstRunData = memory[runs[0]] ?? [];
     const chartData = sortMode
-        ? [...memory].sort((a, b) => b.A - a.A)
-        : memory;
+        ? [...firstRunData].sort(
+              (a, b) => (b.A - b.B) - (a.A - a.B)
+          )
+        : firstRunData;
 
-    const AData = chartData.map((d) => d.A)
-    const BData = chartData.map((d) => d.B)
     const labels = chartData.map((d) => d.label)
 
-    const series = [
-        {
-            name: "A",
-            type: "line",
-            showSymbol: false,
-            lineStyle: {color: "blue"},
-            data: AData,
+    const series = runs.flatMap(run => {
 
-        },
-        {
-            name: "B",
-            type: "line",
-            showSymbol: false,
-            lineStyle: {color: "red"},
-            data: BData,
-        },
-    ]
+        const runData = memory[run] ?? [];
+        const diffLookup = Object.fromEntries(
+            runData.map(item => [
+                item.label,
+                [item.A, item.B]
+            ])
+        );
+        return [
+            {
+                name: "A " + run,
+                type: "line",
+                showSymbol: false,
+                lineStyle: { color: '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0')},
+                data: labels.map(label =>
+                    diffLookup[label]
+                        ? diffLookup[label][0]
+                        : null
+                ),
+            },
+
+            {
+                name: "B " + run,
+                type: "line",
+                showSymbol: false,
+                lineStyle: {color: '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0')},
+                data: labels.map(label =>
+                    diffLookup[label]
+                        ? diffLookup[label][1]
+                        : null
+                ),
+            }
+        ];
+
+    });
 
     const options = {
         title: {
-            text: run + " - Raw AB Memory",
+            text: "Raw AB Memory",
             left: "center",
             top: 10,
         }, 

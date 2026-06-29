@@ -1,48 +1,50 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { Button } from "@mui/material";
 
-function MemoryComparisonChart({ run }){
+function MemoryComparisonChart({ data }) {
+    const apiURL = "http://localhost:8000";
 
-    const apiURL = "http://localhost:8000"
-    const [memory, setMemory] = useState([])
-    const [sortMode, setSortMode] = useState(false)
+    const memoryData = data
+    const runs = Object.keys(memoryData)
+    const [sortMode, setSortMode] = useState(false);
 
-    useEffect(() => {
-        fetch(apiURL + "/runs/" + run + "/memory")
-        .then((response) => response.json())
-        .then((data) => {
-            setMemory(data);
-        })
-        .catch((err) => {console.log(err.message)});
-    }, [])
+
+    if (!runs?.length) {
+        return null;
+    }
+
+    const firstRunData = memoryData[runs[0]] ?? [];
 
     const chartData = sortMode
-        ? [...memory].sort(
-            (a, b) => (b.A - b.B) - (a.A - a.B)
-        )
-        : memory;
+        ? [...firstRunData].sort(
+              (a, b) => (b.A - b.B) - (a.A - a.B)
+          )
+        : firstRunData;
 
     const labels = chartData.map(d => d.label);
-    const diffData = chartData.map(d => d.A - d.B);
 
-    const series = [
-        {
-            name: "A-B",
+    const series = runs.map(run => {
+        const runData = memoryData[run] ?? [];
+
+        const diffLookup = Object.fromEntries(
+            runData.map(item => [item.label, item.A - item.B])
+        );
+
+        return {
+            name: run,
             type: "line",
             showSymbol: false,
-            lineStyle: {color: "blue"},
-            data: diffData
-
-        },
-    ]
+            data: labels.map(label => diffLookup[label] ?? null),
+        };
+    });
 
     const options = {
         title: {
-            text: run + " - A-B Memory Comparison",
+            text: "Memory Comparison",
             left: "center",
             top: 10,
-        }, 
+        },
 
         legend: {
             top: 40,
@@ -61,7 +63,7 @@ function MemoryComparisonChart({ run }){
 
         xAxis: {
             type: "category",
-            data: labels
+            data: labels,
         },
 
         yAxis: {
@@ -73,21 +75,23 @@ function MemoryComparisonChart({ run }){
             { type: "slider" },
         ],
 
-        series
-    }
+        series,
+    };
+
     return (
         <div>
-            <Button onClick={() => setSortMode((prev) => !prev)}>
-                {sortMode ? "Original Order" : "Sort by A"}
+            <Button onClick={() => setSortMode(prev => !prev)}>
+                {sortMode ? "Original Order" : "Sort by Difference"}
             </Button>
+
             <ReactECharts
                 option={options}
                 notMerge={true}
                 lazyUpdate={true}
-                style={{ height: 600, width: "30vw" }}          
+                style={{ height: 600, width: "60vw" }}
             />
         </div>
     );
 }
 
-export default MemoryComparisonChart
+export default MemoryComparisonChart;
