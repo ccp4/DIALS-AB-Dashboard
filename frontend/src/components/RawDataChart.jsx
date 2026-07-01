@@ -1,13 +1,35 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
-import { Autocomplete, TextField } from '@mui/material';
-function RawDataChart({ data }) {
+import { Autocomplete, TextField } from "@mui/material";
 
-  const [selectRun, setSelectRun] = useState(null)
-  const [selectTrace, setSelectTrace] = useState(null)
 
+function RawDataChart({
+  data,
+  sync = false,
+  forcedSelection,
+  onSelectionChange
+}) {
+
+  const [selectRun, setSelectRun] = useState(null);
+  const [selectTrace, setSelectTrace] = useState(null);
+
+
+  // What the chart actually uses
+  const activeRun = sync
+    ? forcedSelection?.dataset ?? null
+    : selectRun;
+
+
+  const activeTrace = sync
+    ? forcedSelection?.trace ?? null
+    : selectTrace;
+
+
+
+  // Initial local selection (unchanged behaviour)
   useEffect(() => {
-    const runs = Object.keys(data);
+
+    const runs = Object.keys(data ?? {});
 
     if (runs.length) {
       setSelectRun(runs[0]);
@@ -17,39 +39,61 @@ function RawDataChart({ data }) {
 
   }, [data]);
 
+
+
   useEffect(() => {
-    const traces = Object.keys(data?.[selectRun] ?? {});
+
+    const traces = Object.keys(
+      data?.[selectRun] ?? {}
+    );
+
     setSelectTrace(traces[0] ?? null);
+
   }, [selectRun, data]);
 
-  const keys = Object.keys(data);
 
-  const traces = selectRun
-    ? Object.keys(data[selectRun])
+
+  const keys = Object.keys(data ?? {});
+
+
+  const traces = activeRun
+    ? Object.keys(data[activeRun] ?? {})
     : [];
 
-  const series = selectRun && selectTrace
-    ? data[selectRun][selectTrace].map(trace => ({
-      name: trace.name,
-      type: "line",
-      data: trace.data,
-      showSymbol: false,
-    }))
-    : [];
+
+
+const selectedData =
+    data?.[activeRun]?.[activeTrace] ?? [];
+
+
+const series = selectedData.map(trace => ({
+    name: trace.name,
+    type: "line",
+    data: trace.data,
+    showSymbol: false,
+}));
+
+
 
   const option = {
     title: {
-      text: `${selectRun} → ${selectTrace}`,
+        text:
+          activeRun && activeTrace
+            ? `${activeRun} → ${activeTrace}`
+            : "No matching data"
     },
 
     tooltip: {
       trigger: "axis",
-      axisPointer: { type: 'cross' },
+      axisPointer: { type: "cross" },
+
       formatter: (params) => {
+
         if (!params.length) return "";
 
         const xRaw = params[0].value[0];
-        const xDisplay = Math.sqrt(1 / xRaw).toFixed(3)
+        const xDisplay =
+          Math.sqrt(1 / xRaw).toFixed(3);
 
         let text = `x: ${xDisplay}<br/>`;
 
@@ -88,7 +132,7 @@ function RawDataChart({ data }) {
 
     yAxis: {
       type: "value",
-      name: `${selectTrace}`,
+      name: `${activeTrace}`,
       nameLocation: "middle",
       nameRotate: 90,
       nameGap: 30,
@@ -103,7 +147,8 @@ function RawDataChart({ data }) {
     },
 
     series,
-  }
+  };
+
 
 
   return (
@@ -113,32 +158,76 @@ function RawDataChart({ data }) {
         disablePortal
         options={keys}
         sx={{ width: 300 }}
-        renderInput={(params) => <TextField {...params} label="Select data" />}
-        value={selectRun}
-        onChange={(e, run) => { setSelectRun(run) }}
+
+        renderInput={(params) =>
+          <TextField
+            {...params}
+            label="Select data"
+          />
+        }
+
+        value={activeRun}
+
+        onChange={(e, run) => {
+
+          setSelectRun(run);
+
+          if (sync) {
+            onSelectionChange({
+              dataset: run,
+              trace: activeTrace
+            });
+          }
+
+        }}
       />
 
+
       <br />
+
 
       <Autocomplete
         disablePortal
         options={traces}
         sx={{ width: 300 }}
-        renderInput={(params) => <TextField {...params} label="Select trace" />}
-        value={selectTrace}
-        onChange={(e, trace) => { setSelectTrace(trace) }}
+
+        renderInput={(params) =>
+          <TextField
+            {...params}
+            label="Select trace"
+          />
+        }
+
+        value={activeTrace}
+
+        onChange={(e, trace) => {
+
+          setSelectTrace(trace);
+
+          if (sync) {
+            onSelectionChange({
+              dataset: activeRun,
+              trace
+            });
+          }
+
+        }}
       />
+
 
       <ReactECharts
         option={option}
-        style={{ height: 600, width: "35vw"}}
+        style={{
+          height: 600,
+          width: "35vw"
+        }}
         notMerge={true}
         lazyUpdate={true}
       />
 
-
     </>
-  )
+  );
 }
 
-export default RawDataChart
+
+export default RawDataChart;

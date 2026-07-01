@@ -2,111 +2,17 @@ import RawDataChart from "../components/RawDataChart";
 import { useState, useEffect } from "react";
 import RunSelector from "../components/RunSelector";
 import { Card, CardContent, Typography, Grid } from "@mui/material";
+import useRunResource from "../hooks/useRunResource";
+import MetricGroupCard from "../components/MetricGroupCard";
 
 export default function DataSetsPage() {
     const [selectedRuns, setSelectedRuns] = useState([]);
-    const [rawData, setRawData] = useState({});
-    const [comparisonData, setComparisonData] = useState({});
-    const [loading, setLoading] = useState(false);
-    const apiURL = "http://localhost:8000";
 
+    const raw = useRunResource(selectedRuns, "raw");
+    const comparison = useRunResource(selectedRuns, "comparison");
 
-    useEffect(() => {
-        setRawData(prev =>
-            Object.fromEntries(
-                selectedRuns
-                    .filter(run => prev[run])
-                    .map(run => [run, prev[run]])
-            )
-        );
+    const loading = raw.loading || comparison.loading;
 
-        setComparisonData(prev =>
-            Object.fromEntries(
-                selectedRuns
-                    .filter(run => prev[run])
-                    .map(run => [run, prev[run]])
-            )
-        );
-    }, [selectedRuns]);
-
-    useEffect(() => {
-        async function fetchMissingRuns() {
-
-            const missingRuns = selectedRuns.filter(
-                run => !rawData[run]
-            );
-
-            if (!missingRuns.length) {
-                return;
-            }
-
-
-            setLoading(true);
-
-            try {
-
-                const rawResults = await Promise.all(
-                    missingRuns.map(async run => {
-                        const res = await fetch(
-                            `${apiURL}/runs/${run}/raw`
-                        );
-
-                        return {
-                            run,
-                            data: await res.json()
-                        };
-                    })
-                );
-
-
-                const comparisonResults = await Promise.all(
-                    missingRuns.map(async run => {
-                        const res = await fetch(
-                            `${apiURL}/runs/${run}/comparison`
-                        );
-
-                        return {
-                            run,
-                            data: await res.json()
-                        };
-                    })
-                );
-
-
-                setRawData(prev => ({
-                    ...prev,
-                    ...Object.fromEntries(
-                        rawResults.map(({ run, data }) => [
-                            run,
-                            data
-                        ])
-                    )
-                }));
-
-
-                setComparisonData(prev => ({
-                    ...prev,
-                    ...Object.fromEntries(
-                        comparisonResults.map(({ run, data }) => [
-                            run,
-                            data
-                        ])
-                    )
-                }));
-
-
-            } catch (err) {
-                console.log(err.message);
-            }
-            finally {
-                setLoading(false);
-            }
-        }
-
-
-        fetchMissingRuns();
-
-    }, [selectedRuns, rawData]);
 
     return (
         <>
@@ -115,62 +21,15 @@ export default function DataSetsPage() {
                 onChange={setSelectedRuns}
             />
 
+            <MetricGroupCard
+                title="Raw Metrics"
+                data={raw.data}
+            />
 
-            {loading && (
-                <p>Loading...</p>
-            )}
-
-
-			{selectedRuns.map(run => {
-
-				if (!rawData[run] || !comparisonData[run]) {
-					return null;
-				}
-
-				return (
-					<Card
-						key={run}
-						sx={{
-							marginBottom: 3,
-							padding: 2
-						}}
-					>
-						<CardContent>
-
-							<Typography variant="h5" gutterBottom>
-								{run}
-							</Typography>
-
-
-							<Grid container spacing={2}>
-
-								<Grid item xs={12} md={6}>
-									<Typography variant="h6">
-										Raw Data
-									</Typography>
-
-									<RawDataChart
-										data={rawData[run]}
-									/>
-								</Grid>
-
-
-								<Grid item xs={12} md={6}>
-									<Typography variant="h6">
-										Comparison Metrics
-									</Typography>
-
-									<RawDataChart
-										data={comparisonData[run]}
-									/>
-								</Grid>
-
-							</Grid>
-
-						</CardContent>
-					</Card>
-				);
-			})}
+            <MetricGroupCard
+                title="Comparison Metrics"
+                data={comparison.data}
+            />
         </>
     );
 }
