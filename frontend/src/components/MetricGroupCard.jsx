@@ -10,7 +10,7 @@ import {
 
 import RawDataChart from "./RawDataChart";
 
-function MetricGroupCard({title,data}) {
+function MetricGroupCard({title,data,type}) {
 
     const [sync, setSync] = useState(false);
     const [forcedSelection, setForcedSelection] = useState({
@@ -78,6 +78,7 @@ function MetricGroupCard({title,data}) {
 
 
                             <RawDataChart
+                                type={type}
                                 data={runData}
                                 sync={sync}
                                 forcedSelection={

@@ -1,85 +1,85 @@
-import { useEffect, useState } from "react"
 import ReactECharts from "echarts-for-react";
-import { Button } from "@mui/material";
 
-function MemoryABChart({ data }){
+function MemoryABChart({ data }) {
 
-    const memory = data
-    const [sortMode, setSortMode] = useState(false)
+    const memory = data ?? {};
+    const runs = Object.keys(memory);
 
-    const runs = Object.keys(data)
+    if (!runs.length) return null;
 
-    const firstRunData = memory[runs[0]] ?? [];
-    const chartData = sortMode
-        ? [...firstRunData].sort(
-              (a, b) => (b.A - b.B) - (a.A - a.B)
-          )
-        : firstRunData;
+    // ---------------------------------------
+    // Build series across ALL runs
+    // ---------------------------------------
+    const series = [];
 
-    const labels = chartData.map((d) => d.label)
+    let globalMaxRank = 0;
 
-    const series = runs.flatMap(run => {
+    const labels = []
+
+    runs.forEach(run => {
 
         const runData = memory[run] ?? [];
-        const diffLookup = Object.fromEntries(
-            runData.map(item => [
-                item.label,
-                [item.A, item.B]
-            ])
+
+        const sortedA = runData
+            .map(d => d.A)
+            .filter(Number.isFinite)
+            .sort((a, b) => b - a);
+
+        const sortedB = runData
+            .map(d => d.B)
+            .filter(Number.isFinite)
+            .sort((a, b) => b - a);
+        
+        labels.push(runData.map(d => d.label));
+
+        globalMaxRank = Math.max(globalMaxRank, sortedA.length, sortedB.length);
+
+        const ranks = Array.from(
+            { length: Math.max(sortedA.length, sortedB.length) },
+            (_, i) => i + 1
         );
-        return [
+
+        series.push(
             {
-                name: "A " + run,
+                name: `${run} A`,
                 type: "line",
                 showSymbol: false,
-                lineStyle: { color: '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0')},
-                data: labels.map(label =>
-                    diffLookup[label]
-                        ? diffLookup[label][0]
-                        : null
-                ),
+                data: ranks.map(i => sortedA[i - 1] ?? null),
             },
-
             {
-                name: "B " + run,
+                name: `${run} B`,
                 type: "line",
                 showSymbol: false,
-                lineStyle: {color: '#'+(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0')},
-                data: labels.map(label =>
-                    diffLookup[label]
-                        ? diffLookup[label][1]
-                        : null
-                ),
+                data: ranks.map(i => sortedB[i - 1] ?? null),
             }
-        ];
-
+        );
     });
+
+    // shared rank axis (largest needed)
+    const ranks = Array.from(
+        { length: globalMaxRank },
+        (_, i) => i + 1
+    );
 
     const options = {
         title: {
-            text: "Raw AB Memory",
+            text: "A vs B Data Set Distribution (All Runs)",
             left: "center",
-            top: 10,
-        }, 
-
-        legend: {
-            top: 40,
         },
 
         tooltip: {
             trigger: "axis",
+            axisPointer: { type: "cross" },
         },
 
-        grid: {
-            top: 100,
-            left: 60,
-            right: 30,
-            bottom: 80,
+        legend: {
+            top: 30,
         },
 
         xAxis: {
             type: "category",
-            data: labels,
+            data: labels[0],
+            name: "Rank (High → Low)",
         },
 
         yAxis: {
@@ -92,22 +92,16 @@ function MemoryABChart({ data }){
         ],
 
         series
-    }
+    };
+
     return (
-        <>
-            <div>
-                <Button onClick={() => setSortMode((prev) => !prev)}>
-                    {sortMode ? "Original Order" : "Sort by A"}
-                </Button>
-                <ReactECharts
-                    option={options}
-                    notMerge={true}
-                    lazyUpdate={true}
-                    style={{ height: 600, width: "30vw" }}          
-                />
-            </div>
-        </>
+        <ReactECharts
+            option={options}
+            notMerge
+            lazyUpdate
+            style={{ height: 600, width: "60vw" }}
+        />
     );
 }
 
-export default MemoryABChart
+export default MemoryABChart;

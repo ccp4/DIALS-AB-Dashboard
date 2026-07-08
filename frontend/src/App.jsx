@@ -1,14 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import DashboardLayout from "./components/DashboardLayout"
 import DataSetsPage from "./pages/DataSetsPage"
-import OverViewPage from "./pages/OverViewPage"
+import DataMemoryPage from "./pages/DataMemoryPage"
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<OverViewPage />} />
+          <Route index element={<DataMemoryPage />} />
           <Route path="datasets" element={<DataSetsPage />} />
         </Route>
       </Routes>

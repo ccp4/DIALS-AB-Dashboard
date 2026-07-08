@@ -25,7 +25,7 @@ def extract_xia2_memory(workspace: Workspace, run_id: str) -> dict:
     return _extract_memory_files(
         workspace,
         run_id,
-        ["peak_memory.txt"],
+        ["peak_memory-integrate.txt"],
     )
 
 

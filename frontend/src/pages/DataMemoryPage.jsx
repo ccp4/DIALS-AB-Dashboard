@@ -1,13 +1,13 @@
 import ChartCard from "../components/ChartCard"
 import { Grid } from "@mui/material"
 import MemoryABChart from "../components/MemoryABChart";
-import MemoryComparisonChart from "../components/MemoryComparisonChart";
+import MemoryComparisonBlock from "../components/MemoryComparisonBlock";
 import ResolutionChecker from "../components/ResolutionChecker"
 import RunSelector from "../components/RunSelector";
 import { useState, useEffect } from "react";
 import useRunResource from "../hooks/useRunResource";
 
-export default function OverViewPage(){
+export default function DataMemoryPage(){
 	const [selectedRuns, setSelectedRuns] = useState([]);
     const memory = useRunResource(selectedRuns, "memory");
     const loading = memory.loading
@@ -25,7 +25,7 @@ export default function OverViewPage(){
 
             {!loading && selectedRuns.length > 0 && (
 				<>
-					<MemoryComparisonChart
+					<MemoryComparisonBlock
 						data={memory.data}
 					/>
 

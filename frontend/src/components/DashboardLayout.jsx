@@ -41,11 +41,11 @@ export default function DashboardLayout({ children }) {
 
 				<List>
 					<ListItemButton component={Link} to="/">
-						<ListItemText primary="Overview" />
+						<ListItemText primary="Memory Usage" />
 					</ListItemButton>
 
 					<ListItemButton component={Link} to="/datasets">
-						<ListItemText primary="Data Sets" />
+						<ListItemText primary="Data Quality" />
 					</ListItemButton>
 				</List>
       </Drawer>
