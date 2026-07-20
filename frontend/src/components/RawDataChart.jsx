@@ -50,7 +50,7 @@ function RawDataChart({
 
   let series
 
-  if(type == "raw"){
+  if(type == "raw" && activeTrace == "cc_half"){
     series = selectedData.map(trace => {
       if(trace.name.includes("fit")){
         console.log(trace.name)
