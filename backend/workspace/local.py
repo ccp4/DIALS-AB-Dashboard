@@ -11,8 +11,10 @@ class LocalWorkspace:
     def exists(self, path: str) -> bool:
         return self.resolve(path).exists()
 
-    def list_dirs(self) -> list[str]:
-        return [dir.name for dir in self.root.iterdir() if dir.is_dir()]
+    def list_dirs(self, path: str | None = None) -> list[str]:
+        if path is None:
+            path = self.root
+        return [dir.name for dir in path.iterdir() if dir.is_dir()]
     
     def list_files(self, path: str) -> list[str]:
         return [

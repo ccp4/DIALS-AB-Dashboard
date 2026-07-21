@@ -5,6 +5,7 @@ import MemoryComparisonBlock from "../components/MemoryComparisonBlock";
 import RunSelector from "../components/RunSelector";
 import { useState, useEffect } from "react";
 import useRunResource from "../hooks/useRunResource";
+import MemoryProfilerPlot from "../components/MemoryProfilerPlot";
 
 export default function DataMemoryPage(){
 	const [selectedRuns, setSelectedRuns] = useState([]);
@@ -31,6 +32,14 @@ export default function DataMemoryPage(){
 					<MemoryABChart
 						data={memory.data}
 					/>
+
+					{Object.entries(memory.data).map(
+                        ([run, runData]) => (
+							<>
+							<h3>{run}</h3>
+							<MemoryProfilerPlot run={run} />
+							</>
+						))}
 				</>
             )}
 

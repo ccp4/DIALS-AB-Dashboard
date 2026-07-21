@@ -50,3 +50,17 @@ async def get_memory(run_id: str):
     Returns memory data extracted from run folder
     """
     return service.get_xia2_memory(run_id=run_id)
+
+@router.get("/{run_id}/memory/{dataset}")
+async def get_memory_plot(run_id: str, dataset: str):
+    """
+    Returns memory data extracted from run folder
+    """
+    return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
+
+@router.get("/{run_id}/memory/{dataset}/events")
+async def get_memory_timings(run_id: str, dataset: str):
+    """
+    Returns memory data extracted from run folder
+    """
+    return service.get_xia2_dataset_timing(run_id=run_id, dataset=dataset)
