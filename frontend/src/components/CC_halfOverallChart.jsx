@@ -1,16 +1,16 @@
 import ReactECharts from "echarts-for-react";
 
-// Convert (1/d)^2  ->  d
+// Convert (1/d)^2 -> d
 function invSqToD(v) {
-  if (
-    v == null ||
-    Number.isNaN(v) ||
-    v <= 0
-  ) {
-    return null;
-  }
+    if (
+        v == null ||
+        Number.isNaN(v) ||
+        v <= 0
+    ) {
+        return null;
+    }
 
-  return 1 / Math.sqrt(v);
+    return 1 / Math.sqrt(v);
 }
 
 function CC_halfOverallChart({ data }) {
@@ -44,17 +44,38 @@ function CC_halfOverallChart({ data }) {
             return getVal(b) - getVal(a);
         });
 
-        const values = datasets.map(dataset => {
+        const valuesA = [];
+        const valuesB = [];
+        const valuesDiff = [];
+
+        datasets.forEach(dataset => {
 
             const ccHalf = runData[dataset]?.cc_half ?? [];
 
-            const trace = ccHalf.find(t =>
+            const Atrace = ccHalf.find(t =>
+                t?.name?.includes("A - d_min")
+            );
+
+            const Btrace = ccHalf.find(t =>
                 t?.name?.includes("B - d_min")
             );
 
-            const value = trace?.data?.[0]?.[0] ?? null;
+            const aVal = Atrace?.data?.[0]?.[0] ?? null;
+            const bVal = Btrace?.data?.[0]?.[0] ?? null;
 
-            if (!trace || !trace?.data?.length) {
+            valuesA.push(aVal);
+            valuesB.push(bVal);
+
+            valuesDiff.push(
+                aVal != null && bVal != null
+                    ? aVal - bVal
+                    : null
+            );
+
+            if (
+                !Atrace?.data?.length ||
+                !Btrace?.data?.length
+            ) {
                 console.warn(
                     `[CC_halfOverallChart] Missing d_min`,
                     {
@@ -66,15 +87,35 @@ function CC_halfOverallChart({ data }) {
             }
 
             datasetUnion.add(dataset);
-
-            return value;
         });
 
         series.push({
-            name: run,
+            name: `${run} - A`,
             type: "line",
+            yAxisIndex: 0,
             showSymbol: true,
-            data: values,
+            data: valuesA,
+        });
+
+        series.push({
+            name: `${run} - B`,
+            type: "line",
+            yAxisIndex: 0,
+            showSymbol: true,
+            data: valuesB,
+        });
+
+        series.push({
+            name: `${run} Δ`,
+            type: "line",
+            yAxisIndex: 1,
+            showSymbol: true,
+            data: valuesDiff,
+            lineStyle: {
+                type: "dashed",
+                width: 2,
+            },
+            symbol: "diamond",
         });
     });
 
@@ -82,13 +123,15 @@ function CC_halfOverallChart({ data }) {
 
     const options = {
         title: {
-            text: "CC Half at 0.5 per Dataset",
+            text: "CC½ Resolution and A−B Difference",
             left: "center",
         },
 
         tooltip: {
             trigger: "axis",
-            axisPointer: { type: "cross" },
+            axisPointer: {
+                type: "cross",
+            },
         },
 
         legend: {
@@ -101,27 +144,45 @@ function CC_halfOverallChart({ data }) {
             name: "Dataset",
         },
 
-        yAxis: {
-            type: "value",
-            inverse: true,
-            name: "Resolution (Å)",
-            axisLabel: {
-                formatter: (value) => {
-                    if (!Number.isFinite(value) || value <= 0) {
-                        return "";
-                    }
+        yAxis: [
+            {
+                type: "value",
+                inverse: true,
+                name: "Resolution (Å)",
+                axisLabel: {
+                    formatter: (value) => {
+                        if (!Number.isFinite(value) || value <= 0) {
+                            return "";
+                        }
 
-                    return invSqToD(value).toFixed(2);
+                        return invSqToD(value).toFixed(2);
+                    }
+                }
+            },
+            {
+                type: "value",
+                name: "Difference (Å⁻²)",
+                position: "right",
+                alignTicks: true,
+                axisLine: {
+                    show: true,
+                },
+                axisLabel: {
+                    formatter: value => value.toFixed(3),
                 }
             }
-        },
-
-        dataZoom: [
-            { type: "inside" },
-            { type: "slider" },
         ],
 
-        series
+        dataZoom: [
+            {
+                type: "inside",
+            },
+            {
+                type: "slider",
+            },
+        ],
+
+        series,
     };
 
     return (
@@ -129,7 +190,10 @@ function CC_halfOverallChart({ data }) {
             option={options}
             notMerge
             lazyUpdate
-            style={{ height: 600, width: "60vw" }}
+            style={{
+                height: 700,
+                width: "70vw",
+            }}
         />
     );
 }
