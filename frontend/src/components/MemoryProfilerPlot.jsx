@@ -10,6 +10,7 @@ function MemoryProfilerPlot({ run }) {
 
   const [memoryData, setMemoryData] = useState(null);
   const [commandData, setCommandData] = useState(null);
+  const [infoData, setInfoData] = useState(null);
 
   const [loadingDatasets, setLoadingDatasets] = useState(true);
   const [loadingMemory, setLoadingMemory] = useState(false);
@@ -44,20 +45,23 @@ function MemoryProfilerPlot({ run }) {
       setLoadingMemory(true);
 
       try {
-        const [memoryResponse, commandResponse] = await Promise.all([
+        const [memoryResponse, commandResponse, infoResponse] = await Promise.all([
           fetch(`${apiURL}/runs/${run}/memory/${selectedDataset}`),
-          fetch(`${apiURL}/runs/${run}/memory/${selectedDataset}/events`)
+          fetch(`${apiURL}/runs/${run}/memory/${selectedDataset}/events`),
+          fetch(`${apiURL}/runs/${run}/info/${selectedDataset}`)
         ]);
 
-        if (!memoryResponse.ok || !commandResponse.ok) {
+        if (!memoryResponse.ok || !commandResponse.ok || !infoResponse.ok) {
           throw new Error("Failed to fetch profiling data");
         }
 
         const memory = await memoryResponse.json();
         const commands = await commandResponse.json();
+        const info = await infoResponse.json();
 
         setMemoryData(memory);
         setCommandData(commands);
+        setInfoData(info)
 
       } catch (err) {
         setError(err.message);
@@ -186,8 +190,22 @@ const markAreas = commands.map(cmd => {
 
       {loadingMemory && <p>Loading...</p>}
 
-      {memoryData && commandData && (
+      {memoryData && commandData && infoData && (
         <>
+
+          <div>
+            {Object.entries(infoData).map(([key, inner]) => (
+              <div key={key}>
+                <h3>{key}</h3>
+
+                {Object.entries(inner).map(([k, v]) => (
+                  <div key={k}>
+                    <strong>{k}:</strong> {v}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
           <ReactECharts
             option={makeOption(
               "DIALS A",

@@ -1,6 +1,6 @@
 from workspace.factory import get_workspace
 from storage.local import FileSystemRunRepository
-from runs.xia2_extractor import extract_xia2_raw, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing
+from runs.xia2_extractor import extract_xia2_raw, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing
 from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, interpolate_cc_half
 
 class RunService:
@@ -70,6 +70,14 @@ class RunService:
     def get_xia2_dataset_timing(self, run_id:str, dataset: str):
         data = extract_xia2_timing(self.workspace, run_id=run_id, dataset=dataset)
         return data
+
+    def get_xia2_dataset_cumulative_timings(self, run_id: str):
+        return extract_xia2_cumulative_timing(self.workspace, run_id=run_id)
+
+    def get_xia2_cell_space(self, run_id: str, dataset: str):
+        cell_data = extract_xia2_unit_cell(self.workspace, run_id=run_id, dataset=dataset)
+        space_group = extract_xia2_space_group(self.workspace, run_id=run_id, dataset=dataset)
+        return {"unit_cell": cell_data,"space_group": space_group}
 
 
     def run_exists(self, run_id: str):

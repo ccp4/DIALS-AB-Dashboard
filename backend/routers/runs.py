@@ -64,3 +64,17 @@ async def get_memory_timings(run_id: str, dataset: str):
     Returns memory data extracted from run folder
     """
     return service.get_xia2_dataset_timing(run_id=run_id, dataset=dataset)
+
+@router.get("/{run_id}/cumulative")
+async def get_cumulative_memory_timings(run_id: str):
+    """
+    Returns cumulative memory TIMINGS 
+    """
+    return service.get_xia2_dataset_cumulative_timings(run_id=run_id)
+
+@router.get("/{run_id}/info/{dataset}")
+async def get_info(run_id: str, dataset: str):
+    """
+    Returns unit cell and space group info about dataset
+    """
+    return service.get_xia2_cell_space(run_id=run_id, dataset=dataset)

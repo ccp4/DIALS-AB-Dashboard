@@ -48,19 +48,75 @@ def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
         timing = json.loads(text)
 
         for item in timing:
-            if "time_start" not in item or "time_end" not in item:
+            if "time_start" not in item or "time_end" not in item or "runtime" not in item:
                 continue
 
             events.append({
                 "command": item["short_command"],
                 "time_start": float(item["time_start"]),
                 "time_end": float(item["time_end"]),
+                "runtime": float(item["runtime"])
             })
         
         res[f.parent.name] = events
     return res
 
+def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
+    datasets = extract_xia2_datasets(workspace=workspace, run_id=run_id)
+    res = {"A": [],"B": []}
 
+    for data in datasets:
+        timings = extract_xia2_timing(workspace=workspace, run_id=run_id, dataset=data)
+        total = 0
+
+        for process in ("A", "B"):
+            total = 0
+
+            for command in timings.get(process, []):
+                total += command.get("runtime", 0)
+
+            res[process].append([data, total])
+
+    return res
+
+
+def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
+    data_src = workspace.resolve(run_id + "/" + dataset)
+    files = workspace.list_files(data_src)
+    wanted = ["xia2-summary.dat"]
+
+    res = {"A": [],"B": []}
+
+    for f in files:
+        if f.name not in wanted:
+            continue
+
+        text = workspace.read_text(f)
+        for line in text.splitlines():
+            if "Cell:" in line:
+                res[f.parent.name] = line
+                break
+
+    return res
+
+def extract_xia2_space_group(workspace: Workspace, run_id: str, dataset: str):
+    data_src = workspace.resolve(run_id + "/" + dataset)
+    files = workspace.list_files(data_src)
+    wanted = ["xia2-summary.dat"]
+
+    res = {"A": [],"B": []}
+
+    for f in files:
+        if f.name not in wanted:
+            continue
+
+        text = workspace.read_text(f)
+        for line in text.splitlines():
+            if "Spacegroup:" in line:
+                res[f.parent.name] = line
+                break
+
+    return res
 
 def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(

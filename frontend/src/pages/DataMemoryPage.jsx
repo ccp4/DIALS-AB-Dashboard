@@ -6,6 +6,7 @@ import RunSelector from "../components/RunSelector";
 import { useState, useEffect } from "react";
 import useRunResource from "../hooks/useRunResource";
 import MemoryProfilerPlot from "../components/MemoryProfilerPlot";
+import CumulativeTimeTaken from "../components/CumulativeTimeTaken";
 
 export default function DataMemoryPage(){
 	const [selectedRuns, setSelectedRuns] = useState([]);
@@ -38,6 +39,14 @@ export default function DataMemoryPage(){
 							<>
 							<h3>{run}</h3>
 							<MemoryProfilerPlot run={run} />
+							</>
+						))}
+					
+					{Object.entries(memory.data).map(
+						([run, runData]) => (
+							<>
+							<h3>{run} cumulative time taken</h3>
+							<CumulativeTimeTaken run={run} />
 							</>
 						))}
 				</>
