@@ -2,7 +2,7 @@ import ReactECharts from "echarts-for-react";
 
 function MemoryOverlayChart({ data }) {
     const runs = Object.keys(data);
-    const metric = (A, B) => (A - B) ;
+    const metric = (A, B) => A - B;
 
     if (!runs.length) {
         return null;
@@ -11,20 +11,24 @@ function MemoryOverlayChart({ data }) {
     const sortedSeries = runs.map(run => {
         const sorted = (data[run] ?? [])
             .map(item => ({
-                value: metric(item.A, item.B)
+                value: metric(item.A, item.B),
+                A: item.A,
+                B: item.B,
+                label: item.label,
             }))
             .filter(item => Number.isFinite(item.value))
             .sort((a, b) => b.value - a.value);
+
         return {
             name: run,
             type: "line",
             showSymbol: false,
-            data: sorted.map(item => item.value),
+            data: sorted,
         };
     });
 
     const crossings = sortedSeries.map(series => {
-        const index = series.data.findIndex(value => value < 0);
+        const index = series.data.findIndex(item => item.value < 0);
         return index === -1 ? Infinity : index;
     });
 
@@ -39,10 +43,9 @@ function MemoryOverlayChart({ data }) {
         (_, i) => i + 1
     );
 
-    
     const series = [...sortedSeries];
 
-    if (Number.isFinite(allNegativeRank)) {
+    if (Number.isFinite(allNegativeRank) && series.length > 0) {
         series[0].markLine = {
             symbol: "none",
             lineStyle: {
@@ -63,6 +66,24 @@ function MemoryOverlayChart({ data }) {
         tooltip: {
             trigger: "axis",
             axisPointer: { type: "cross" },
+            formatter: params => {
+                const rank = params[0].axisValue;
+
+                let html = `<b>Rank ${rank}</b><br/><br/>`;
+
+                params.forEach(p => {
+                    const d = p.data;
+                    html += `
+                        ${p.marker}<b>${p.seriesName}</b><br/>
+                        Dataset: ${d.label}<br/>
+                        A: ${d.A}<br/>
+                        B: ${d.B}<br/>
+                        A - B: ${d.value}<br/><br/>
+                    `;
+                });
+
+                return html;
+            },
         },
         legend: {
             top: 30,
