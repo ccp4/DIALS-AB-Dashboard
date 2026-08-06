@@ -1,5 +1,6 @@
-import React, { useRef } from "react";
+import React from "react";
 import ReactECharts from "echarts-for-react";
+import EChartsStat from "echarts-stat";
 
 function MemoryABChart({ data }) {
     const memory = data ?? {};
@@ -16,8 +17,6 @@ function MemoryABChart({ data }) {
             }}
         >
             {runs.map((run) => {
-                const chartRef = useRef(null);
-
                 const runData = memory[run] ?? [];
 
                 const points = runData
@@ -30,67 +29,131 @@ function MemoryABChart({ data }) {
                     }));
 
                 const maxValue = Math.max(
-                    ...points.flatMap(p => [
-                        p.A,
-                        p.B,
-                    ]),
+                    ...points.flatMap(p => [p.A, p.B]),
                     1
                 );
 
-                const updateReferenceLine = () => {
-                    const chart = chartRef.current?.getEchartsInstance();
+                const regression = EChartsStat.regression(
+                    "linear",
+                    points.map((p) => [p.A, p.B])
+                );
 
-                    if (!chart) return;
+                const regressionLine = regression.points;
+                const [[x1, y1], [x2, y2]] = regression.points;
+                const slope = regression.parameter.gradient;
+                const intercept = regression.parameter.intercept;
+                const regressionSummary =
+                    `${slope >= 1 ? "B is larger" : "B is smaller"} than A by ` +
+                    `${Math.abs((slope - 1) * 100).toFixed(2)}%` +
+                    `${Math.abs(intercept) > 0.01
+                        ? `\nOffset: ${intercept >= 0 ? "+" : ""}${intercept.toFixed(2)} units`
+                        : ""}` +
+                    `\n${regression.expression}`;
 
-                    const start = chart.convertToPixel(
-                        {
-                            xAxisIndex: 0,
-                            yAxisIndex: 0,
+                const identityLine = [];
+                const step = Math.max(maxValue / 100, 1);
+
+                for (let x = 0; x <= maxValue; x += step) {
+                    identityLine.push([x, x]);
+                }
+
+                if (identityLine.at(-1)?.[0] !== maxValue) {
+                    identityLine.push([maxValue, maxValue]);
+                }
+
+                const series = [
+                    {
+                        name: "x = y",
+                        type: "line",
+                        data: identityLine,
+                        symbol: "none",
+                        silent: true,
+                        animation: false,
+                        lineStyle: {
+                            color: "#999",
+                            width: 1,
+                            type: "dashed",
                         },
-                        [0, 0]
-                    );
-
-                    const end = chart.convertToPixel(
-                        {
-                            xAxisIndex: 0,
-                            yAxisIndex: 0,
+                        z: 0,
+                    },
+                    {
+                        name: "Regression",
+                        type: "line",
+                        data: regressionLine,
+                        symbol: "none",
+                        silent: true,
+                        animation: false,
+                        lineStyle: {
+                            color: "#d62728",
+                            width: 2,
                         },
-                        [maxValue, maxValue]
-                    );
+                        z: 1,
+                    },
+                    {
+                        name: run,
+                        type: "scatter",
+                        symbol: "circle",
+                        symbolSize: 6,
 
-                    if (!start || !end) return;
+                        itemStyle: {
+                            opacity: 0.55,
+                        },
 
-                    chart.setOption({
-                        graphic: [
-                            {
-                                id: "identity-line",
-                                type: "line",
-                                shape: {
-                                    x1: start[0],
-                                    y1: start[1],
-                                    x2: end[0],
-                                    y2: end[1],
-                                },
-                                style: {
-                                    stroke: "#999",
-                                    lineWidth: 1,
-                                    lineDash: [5, 5],
-                                },
-                                silent: true,
+                        emphasis: {
+                            scale: true,
+                            itemStyle: {
+                                opacity: 1,
+                                borderColor: "#000",
+                                borderWidth: 1,
                             },
-                        ],
-                    });
-                };
+                        },
 
-                const onEvents = {
-                    datazoom: updateReferenceLine,
-                };
+                        data: points,
+                        z: 2,
+                    },
+                ]
 
                 const options = {
                     title: {
                         text: `${run}: A vs B`,
                         left: "center",
                     },
+
+                    graphic: [
+                        {
+                            type: "group",
+                            right: 20,
+                            top: 200,
+                            children: [
+                                {
+                                    type: "rect",
+                                    shape: {
+                                        width: 220,
+                                        height: 80,
+                                        r: 5,
+                                    },
+                                    style: {
+                                        fill: "rgba(255,255,255,0.85)",
+                                        stroke: "#ccc",
+                                        lineWidth: 1,
+                                        shadowBlur: 5,
+                                        shadowColor: "rgba(0,0,0,0.1)",
+                                    },
+                                },
+                                {
+                                    type: "text",
+                                    left: 10,
+                                    top: 10,
+                                    style: {
+                                        text: regressionSummary,
+                                        font: "14px sans-serif",
+                                        fill: "#333",
+                                        lineHeight: 20,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
 
                     tooltip: {
                         trigger: "item",
@@ -142,40 +205,13 @@ function MemoryABChart({ data }) {
                         },
                     ],
 
-                    series: [
-                        {
-                            name: run,
-                            type: "scatter",
-                            symbol: "circle",
-                            symbolSize: 6,
-
-                            itemStyle: {
-                                opacity: 0.55,
-                            },
-
-                            emphasis: {
-                                scale: true,
-                                itemStyle: {
-                                    opacity: 1,
-                                    borderColor: "#000",
-                                    borderWidth: 1,
-                                },
-                            },
-
-                            data: points,
-                        },
-                    ],
-
-                    graphic: [],
+                    series
                 };
 
                 return (
                     <ReactECharts
                         key={run}
-                        ref={chartRef}
                         option={options}
-                        onChartReady={updateReferenceLine}
-                        onEvents={onEvents}
                         notMerge
                         lazyUpdate
                         style={{
