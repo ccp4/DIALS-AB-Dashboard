@@ -8,6 +8,19 @@ from config import Settings
 app = FastAPI()
 settings = Settings()
 
+from time import perf_counter
+
+@app.middleware("http")
+async def timing_middleware(request, call_next):
+    start = perf_counter()
+
+    response = await call_next(request)
+
+    elapsed = perf_counter() - start
+    print(f"[BACKEND] {request.url.path} TOTAL: {elapsed:.3f}s")
+
+    return response
+
 # Allow React frontend to connect
 app.add_middleware(
     CORSMiddleware,
@@ -19,10 +32,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    GZipMiddleware,
-    minimum_size=1000
-)
+# app.add_middleware(
+#     GZipMiddleware,
+#     minimum_size=1000
+# )
 
 # Register routers
 app.include_router(runs.router)
@@ -30,5 +43,9 @@ app.include_router(runs.router)
 @app.get("/")
 async def root():
     return {"status": "Working"}
+
+@app.get("/ping")
+async def ping():
+    return {"ok": True}
 
     

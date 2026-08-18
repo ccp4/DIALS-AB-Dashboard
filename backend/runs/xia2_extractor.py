@@ -79,7 +79,6 @@ def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
 
     return res
 
-
 def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
     data_src = workspace.resolve(run_id + "/" + dataset)
     files = workspace.list_files(data_src)
@@ -128,6 +127,12 @@ def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
         ]
     )
 
+def extract_xia2_dataset_raw(workspace: Workspace, run_id: str, dataset: str) -> dict:
+    return extract_xia2_raw(workspace=workspace, run_id=f"{run_id}/{dataset}")
+
+def extract_xia2_dataset_comparison(workspace: Workspace, run_id: str, dataset: str) -> dict:
+    return extract_xia2_comparison(workspace=workspace, run_id=f"{run_id}/{dataset}")
+
 def extract_xia2_comparison(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(
         workspace,
@@ -158,6 +163,27 @@ def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> 
         td = _top_dir(f)
         result.setdefault(td, {})
         result[td][f.name] = json.loads(workspace.read_text(f))
+
+    return result
+
+def _extract_cc_half_from_raw(workspace: Workspace, run_id: str, names: list[str]) -> dict:
+    files = workspace.list_files(workspace.resolve(run_id))
+    wanted = set(names)
+
+    result = {}
+
+    for f in files:
+        if f.name not in wanted:
+            continue
+
+        td = _top_dir(f)
+        
+        data = json.loads(workspace.read_text(f))
+        cc_half = data.get("cc_half", {}).get("data", {})
+        for trace in cc_half:
+            if "d_min" not in trace["name"]:
+                continue
+
 
     return result
 

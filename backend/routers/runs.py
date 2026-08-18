@@ -1,27 +1,28 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from runs.service import RunService
+from workspace.factory import get_workspace
 
 router = APIRouter(
     prefix="/runs",
     tags=["runs"],
 )
 
-service = RunService()
+workspace = get_workspace()
+service = RunService(workspace=workspace)
 
-@router.get("/")
+@router.get("")
 async def list_runs():
     """
     Returns all available run folders in workspace area
     """
-    return service.list_run_summaries()
-
+    return service.list_runs()
 
 @router.get("/{run_id}")
-async def get_run(run_id: str):
+async def get_run_metatdata(run_id: str):
     """
-    Returns run metadata e.g. processed in cache
+    Returns run metadata e.g. datasets, processed in cache
     """
-    return service.get_run_summary(run_id=run_id)
+    return service.get_run_metadata(run_id=run_id)
 
 @router.get("/{run_id}/raw")
 async def get_raw(run_id: str):
@@ -30,7 +31,21 @@ async def get_raw(run_id: str):
     """
     return service.get_xia2_raw(run_id=run_id)
 
-@router.get("/{run_id}/interpolated")
+import json
+
+@router.get("/{run_id}/dataset/{dataset}/raw")
+async def get_raw_dataset(run_id: str, dataset: str):
+
+    result = service.get_xia2_dataset_raw(run_id, dataset)
+    return result
+
+@router.get("/{run_id}/dataset/{dataset}/comparison")
+async def get_raw_dataset(run_id: str, dataset: str):
+
+    result = service.get_xia2_dataset_comparison(run_id, dataset)
+    return result
+
+@router.get("/{run_id}/raw/interpolated")
 async def get_interpolated_points(run_id: str, x: float):
     """
     Returns interpolated points at given value for CC_half
