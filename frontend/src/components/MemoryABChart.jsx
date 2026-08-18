@@ -1,101 +1,22 @@
-
-import React from "react";
 import ReactECharts from "echarts-for-react";
 import EChartsStat from "echarts-stat";
 
+/**
+ * One B-against-A parity scatter per run, with an identity line, a linear fit
+ * and a summary callout.
+ *
+ * Only datasets with a finite value for both variants are plotted; the count of
+ * those that survive is reported in the callout as the denominator.
+ *
+ * @param {Object<string, Array<{label: string, A: number, B: number}>>} data
+ *        Peak memory in MiB, keyed by run id.
+ */
 function MemoryABChart({ data }) {
 
     const memory = data ?? {};
     const runs = Object.keys(memory);
 
     if (!runs.length) return null;
-
-    // ---------------------------------------
-    // Build series across ALL runs
-    // ---------------------------------------
-    const series = [];
-
-    let globalMaxRank = 0;
-
-    const labels = []
-
-    runs.forEach(run => {
-
-        const runData = memory[run] ?? [];
-
-        const sortedA = runData
-            .map(d => d.A)
-            .filter(Number.isFinite)
-            .sort((a, b) => b - a);
-
-        const sortedB = runData
-            .map(d => d.B)
-            .filter(Number.isFinite)
-            .sort((a, b) => b - a);
-        
-        labels.push(runData.map(d => d.label));
-
-        globalMaxRank = Math.max(globalMaxRank, sortedA.length, sortedB.length);
-
-        const ranks = Array.from(
-            { length: Math.max(sortedA.length, sortedB.length) },
-            (_, i) => i + 1
-        );
-
-        series.push(
-            {
-                name: `${run} A`,
-                type: "line",
-                showSymbol: false,
-                data: ranks.map(i => sortedA[i - 1] ?? null),
-            },
-            {
-                name: `${run} B`,
-                type: "line",
-                showSymbol: false,
-                data: ranks.map(i => sortedB[i - 1] ?? null),
-            }
-        );
-    });
-
-    // shared rank axis (largest needed)
-    const ranks = Array.from(
-        { length: globalMaxRank },
-        (_, i) => i + 1
-    );
-
-    const options = {
-        title: {
-            text: "A vs B Data Set Distribution (All Runs)",
-            left: "center",
-        },
-
-        tooltip: {
-            trigger: "axis",
-            axisPointer: { type: "cross" },
-        },
-
-        legend: {
-            top: 30,
-        },
-
-        xAxis: {
-            type: "category",
-            data: labels[0],
-            name: "Rank (High → Low)",
-        },
-
-        yAxis: {
-            type: "value",
-        },
-
-        dataZoom: [
-            { type: "inside" },
-            { type: "slider" },
-        ],
-
-        series
-    };
 
     return (
         <div
@@ -126,18 +47,26 @@ function MemoryABChart({ data }) {
                 "linear",
                 points.map((p) => [p.A, p.B])
                 );
-            
+
                 const regressionLine = regression.points;
-                const [[x1, y1], [x2, y2]] = regression.points;
-                const slope = regression.parameter.gradient;
-                const intercept = regression.parameter.intercept;
+
+                const ratios = points
+                    .map(p => p.B / p.A)
+                    .filter(Number.isFinite)
+                    .sort((a, b) => a - b);
+
+                const median = ratios.length
+                    ? ratios.length % 2
+                        ? ratios[(ratios.length - 1) / 2]
+                        : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
+                    : null;
+
+                const bSmaller = points.filter(p => p.B < p.A).length;
+
                 const regressionSummary =
-                    `${slope >= 1 ? "B is larger" : "B is smaller"} than A by ` +
-                    `${Math.abs((slope - 1) * 100).toFixed(2)}%` +
-                    `${Math.abs(intercept) > 0.01
-                        ? `\nOffset: ${intercept >= 0 ? "+" : ""}${intercept.toFixed(2)} units`
-                        : ""}` +
-                    `\n${regression.expression}`;
+                    `B smaller on ${bSmaller} of ${points.length}` +
+                    `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
+                    `\nfit: ${regression.expression}`;
 
                 const identityLine = [];
                 const step = Math.max(maxValue / 100, 1);
