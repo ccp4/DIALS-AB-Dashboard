@@ -26,6 +26,7 @@ node_modules
 *.sw?
 
 # Frontend
+frontend/.env
 frontend/src/data.json
 frontend/src/sigma.json
 

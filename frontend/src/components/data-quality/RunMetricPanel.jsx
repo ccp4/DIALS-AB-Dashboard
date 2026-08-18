@@ -12,9 +12,10 @@ import RunPanel from "./RunPanel";
 function RunMetricPanel({ title, run_ids, metric }) {
 
     const [sync, setSync] = useState(false);
-    const [datasets, setDatasets] = useState(() =>
-        Object.fromEntries(run_ids.map(id => [id, null]))
-    );
+
+    // Not seeded from run_ids: a lazy initialiser runs once, so a run selected
+    // later would never get a key. An absent key reads the same as null here.
+    const [datasets, setDatasets] = useState({});
 
     const handleDatasetChange = (changedRunId, dataset) => {
         if (sync) {

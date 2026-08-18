@@ -9,12 +9,10 @@ function MultiRunSelector({ value, onChange }) {
 
   const {
     runs,
-    loading,
-    error
+    loading
   } = useAllRuns();
 
   if (loading) return <p>Loading runs...</p>;
-  if (error) return <p>Error: {error}</p>;
 
   return (
     <Autocomplete

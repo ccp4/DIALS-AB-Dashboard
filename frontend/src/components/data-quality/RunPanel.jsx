@@ -4,11 +4,7 @@ import { useDatasetResource } from "./useDatasetResource";
 
 function RunPanel({ runId, metric, dataset, onDatasetChange }) {
 
-    const {
-        data,
-        loading,
-        error
-    } = useDatasetResource(runId, dataset, metric);
+    const { data } = useDatasetResource(runId, dataset, metric);
 
     return (
         <>

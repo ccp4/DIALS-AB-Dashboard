@@ -1,80 +1,31 @@
-import React, { useEffect, useState } from "react";
+import { useState } from "react";
 import { Autocomplete, TextField, Box } from "@mui/material";
 import ReactECharts from "echarts-for-react";
 
-function MemoryProfilerPlot({ run }) {
-  const apiURL = "http://localhost:8000";
+import { useApi } from "../hooks/useApi";
 
-  const [datasets, setDatasets] = useState([]);
+function MemoryProfilerPlot({ run }) {
   const [selectedDataset, setSelectedDataset] = useState(null);
 
-  const [memoryData, setMemoryData] = useState(null);
-  const [commandData, setCommandData] = useState(null);
-  const [infoData, setInfoData] = useState(null);
+  const { data: runInfo, loading: loadingDatasets } = useApi(`/runs/${run}`);
 
-  const [loadingDatasets, setLoadingDatasets] = useState(true);
-  const [loadingMemory, setLoadingMemory] = useState(false);
+  const memoryPath = selectedDataset
+    ? `/runs/${run}/memory/${selectedDataset}`
+    : null;
 
-  const [error, setError] = useState("");
+  const memory = useApi(memoryPath);
+  const commands = useApi(memoryPath && `${memoryPath}/events`);
+  const info = useApi(selectedDataset ? `/runs/${run}/info/${selectedDataset}` : null);
 
-  useEffect(() => {
-    async function fetchDatasets() {
-      try {
-        const response = await fetch(`${apiURL}/runs/${run}`);
+  const datasets = runInfo?.datasets ?? [];
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch datasets");
-        }
+  const memoryData = memory.data;
+  const commandData = commands.data;
+  const infoData = info.data;
 
-        const data = await response.json();
-        setDatasets(data.datasets);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoadingDatasets(false);
-      }
-    }
-
-    fetchDatasets();
-  }, [run]);
-
-  useEffect(() => {
-    if (!selectedDataset) return;
-
-    async function fetchData() {
-      setLoadingMemory(true);
-
-      try {
-        const [memoryResponse, commandResponse, infoResponse] = await Promise.all([
-          fetch(`${apiURL}/runs/${run}/memory/${selectedDataset}`),
-          fetch(`${apiURL}/runs/${run}/memory/${selectedDataset}/events`),
-          fetch(`${apiURL}/runs/${run}/info/${selectedDataset}`)
-        ]);
-
-        if (!memoryResponse.ok || !commandResponse.ok || !infoResponse.ok) {
-          throw new Error("Failed to fetch profiling data");
-        }
-
-        const memory = await memoryResponse.json();
-        const commands = await commandResponse.json();
-        const info = await infoResponse.json();
-
-        setMemoryData(memory);
-        setCommandData(commands);
-        setInfoData(info)
-
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoadingMemory(false);
-      }
-    }
-
-    fetchData();
-  }, [selectedDataset, run]);
+  const loadingMemory = memory.loading || commands.loading || info.loading;
 
   if (loadingDatasets) return <p>Loading datasets...</p>;
-  if (error) return <p>{error}</p>;
 
   const makeOption = (title, samples, commands) => {
       if (!samples || samples.length === 0) {

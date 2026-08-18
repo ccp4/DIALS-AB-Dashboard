@@ -10,13 +10,9 @@ function DatasetSelector({ runId, value, onChange }) {
   const {
     datasets,
     loading,
-    error,
   } = useListDatasets(runId);
 
   if (loading) return <p>Loading datasets...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  console.log("selector value", runId, value);
 
   return (
     <Autocomplete

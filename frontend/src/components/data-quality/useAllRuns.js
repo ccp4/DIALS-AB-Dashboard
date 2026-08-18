@@ -1,33 +1,10 @@
-import { useEffect, useState } from "react";
+import { useApi } from "../../hooks/useApi";
 
 export function useAllRuns() {
-  const [runs, setRuns] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const apiURL = "http://localhost:8000";
-
-  useEffect(() => {
-    const fetchRuns = async () => {
-      try {
-        const response = await fetch(`${apiURL}/runs/`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch runs");
-        }
-        const data = await response.json();
-        setRuns(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRuns();
-  }, []);
+  const { data, loading, error } = useApi("/runs/");
 
   return {
-    runs,
+    runs: data ?? [],
     loading,
     error,
   };

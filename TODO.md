@@ -62,17 +62,37 @@ exist. Split into three sub-phases because they must happen in this order.
 **1a — plumbing and tokens (no component surgery).** Everything here is either a new module or a
 global switch, so it lands without rewriting the charts:
 
-- [ ] A single API client reading `import.meta.env.VITE_API_URL` (section 4). Seven files hardcode
+- [x] A single API client reading `import.meta.env.VITE_API_URL` (section 4). Seven files hardcode
       `http://localhost:8000` today; section 8 would add an eighth. Also the deployability blocker.
-- [ ] One fetch idiom, with `AbortController` in it once (section 4, section 1). Also route fetch
+      `src/api/client.js` — `apiGet(path)` plus an `ApiError` carrying `status` (0 for a network
+      failure, so "backend down" is distinguishable from 404). Raw paths at the call sites rather
+      than a named route map; revisit if phase 1b's `/raw` retirement proves fiddly.
+      `frontend/.env.copy` documents the variable; the fallback means no `.env` is needed for
+      local work.
+- [x] One fetch idiom, with `AbortController` in it once (section 4, section 1). Also route fetch
       failures into the error boundary via `useErrorBoundary()` — today a dead backend shows a
       permanent "Loading…", because boundaries do not catch async errors. Doing it here does it
       once rather than three times. There are three
       idioms now; doing cancellation per-idiom is three times the work. This also fixes
       `useListDatasets`' stale closure and `RunMetricPanel:15`'s stale lazy initialiser as a side
       effect — neither is worth fixing standalone.
-- [ ] The URL-state mechanism (8.7). Building views with it is far cheaper than retrofitting five
+      Done as `src/hooks/useApi.js`: `useApi(path)` and `useApiAll([{key, path}])`. Two hooks
+      because the multi-run accumulate-and-prune shape is genuinely different; forcing one hook to
+      do both would be the bad abstraction. Escalation to the boundary is the default, with
+      `{throwOnError: false}` to opt out. `useRunResource` deleted. **`RunMetricPanel` was not
+      fixed as a side effect** — the lazy initialiser needed an explicit change (seed `{}` and let
+      an absent key read as null). `useApi` derives `loading` from a path stored alongside the
+      data rather than storing it, which avoids `react-hooks/set-state-in-effect` and the flash of
+      the previous path's data.
+- [x] The URL-state mechanism (8.7). Building views with it is far cheaper than retrofitting five
       views afterwards. Per-view adoption follows in 1b and phase 4.
+      `src/hooks/useUrlState.js` — `useUrlParam` and `useUrlParamList` over react-router's
+      `useSearchParams`, writing with `replace` so a five-chip selection leaves one history entry.
+      **Adopted for selected runs only.** Axes, active dataset and basket contents are still
+      `useState`; 8.7 stays open until they follow.
+      Both pages were split so the run selector sits *outside* the boundary the fetch escalates to
+      (`MemoryPanels`, `CC_halfOverallPanel`) — otherwise a failed request takes the selector with
+      it and leaves no control to retry from.
 - [ ] `tokens.js` → `theme.js` + `echartsTheme.js` (section 4). One file holding every hex, spacing
       and chart height; the MUI theme and an `echarts.registerTheme("dials", …)` both built from it.
       `registerTheme` is a global switch, so charts inherit the palette without being rewritten —
@@ -187,8 +207,9 @@ facet until it exists.
 - [ ] Residual event-loop stall at response encoding (section 3) — same disposition as the
       pagination item below: retiring `/raw` removes it. Do not chase it separately.
 - [ ] **`/raw` pagination (section 3): probably do not do this.** Its surviving consumer,
-      `CC_halfOverallChart`, pulls 1.68 MB to read three scalars that the cohort table will hold.
-      Expect to retire the endpoint rather than paginate it — confirm after phase 4.
+      `CC_halfOverallPanel` (the fetch was lifted out of `CC_halfOverallChart` in 1a), pulls 1.68 MB
+      to read three scalars that the cohort table will hold. Expect to retire the endpoint rather
+      than paginate it — confirm after phase 4. Retiring it deletes `CC_halfOverallPanel` too.
 - [ ] `interpolate`'s descending-`x` bug (section 1): **do not fix.** Section 6 records that
       `/raw/interpolated` is being reworked to *extract* the real value rather than interpolate one,
       which dissolves the bug. Just do not reintroduce interpolation over descending `x`.
@@ -244,13 +265,15 @@ facet until it exists.
       [RawDataChart.jsx:54-66](frontend/src/components/RawDataChart.jsx#L54-L66) — the `cc_half`
       branch maps with no `else`, so non-`fit` traces become `undefined`.
 
-- [ ] **`useListDatasets` has a stale-closure bug.**
+- [x] **`useListDatasets` has a stale-closure bug.**
       [useListDatasets.js:28](frontend/src/components/data-quality/useListDatasets.js#L28) — uses
-      `runId` but has an empty dep array.
+      `runId` but has an empty dep array. Gone: the hook is now a wrapper over `useApi`, which keys
+      its effect on the path.
 
-- [ ] **No request cancellation anywhere.** No `AbortController` in any hook. Combined with
+- [x] **No request cancellation anywhere.** No `AbortController` in any hook. Combined with
       StrictMode's double-invoke, switching runs quickly lets a stale response overwrite a newer
-      one.
+      one. Both `useApi` and `useApiAll` abort on input change and unmount, and `apiGet` rethrows
+      `AbortError` unwrapped so an abort is never mistaken for a failure.
 
 - [x] **The headline "B is faster/larger by N%" is derived from the gradient alone.**
       [CumulativeTimeTaken.jsx:52-54](frontend/src/components/CumulativeTimeTaken.jsx#L52-L54) and
@@ -318,12 +341,17 @@ facet until it exists.
       `DatasetChart`). No Pydantic response models, so FastAPI validates nothing and `/docs` is
       uninformative. A rename produces a blank chart and no error anywhere.
 
-- [ ] **The frontend cannot be deployed.** `http://localhost:8000` is hardcoded in seven files.
+- [x] **The frontend cannot be deployed.** `http://localhost:8000` is hardcoded in seven files.
       Needs a single API client reading `import.meta.env.VITE_API_URL`. **Blocker for community use.**
+      Done in `src/api/client.js`; the only remaining literal is that file's fallback. Note the
+      backend's `FRONTEND_URL` CORS origin has to match wherever the frontend is actually served
+      from — deploying needs both variables set, not just this one.
 
-- [ ] **Three parallel data-fetching idioms** — `useRunResource`, the `data-quality/use*` hooks, and
+- [x] **Three parallel data-fetching idioms** — `useRunResource`, the `data-quality/use*` hooks, and
       ad-hoc `useEffect`+`fetch` inside `RunSelector`/`MemoryProfilerPlot`/`CumulativeTimeTaken`.
-      Consolidate onto one.
+      Consolidate onto one. Now one: `useApi` / `useApiAll`. The `data-quality/use*` hooks survive
+      as three-line named wrappers over `useApi`, which is a naming convenience rather than a
+      second idiom.
 
 - [ ] **No shared chart config — split by *chrome vs meaning*, not by chart.**
       [baseLineChartOptions.js](frontend/src/utils/baseLineChartOptions.js) has zero importers, so
@@ -595,6 +623,12 @@ the first. Build in order.
       lists this as a product gap; in an exploration tool it is more than that — it is what turns
       solitary exploration into a shared conversation. Small, and best done early, because
       retrofitting URL state across views built without it is much more work than building with it.
+
+      **Mechanism built in phase 1a** (`src/hooks/useUrlState.js`) and adopted for selected runs on
+      both pages. Still on `useState` and still to move: `RunMetricPanel`'s per-run dataset choice
+      and sync toggle, `MemoryProfilerPlot`'s dataset, `RawDataChart`/`DatasetChart`'s trace
+      selection. Do each as its view is touched in 1b and phase 4 rather than as a sweep. Note both
+      pages use the parameter name `runs`, so a link carries selection across the two views.
 
 ### 8.8 The workbench
 

@@ -1,21 +1,15 @@
 import RawDataChart from "../components/RawDataChart";
-import { useState, useEffect } from "react";
 import RunSelector from "../components/RunSelector";
 import { Card, CardContent, Typography, Grid } from "@mui/material";
-import useRunResource from "../hooks/useRunResource";
+import ErrorBoundary from "../components/ErrorBoundary";
 import MetricGroupCard from "../components/MetricGroupCard";
-import CC_halfOverallChart from "../components/CC_halfOverallChart";
+import CC_halfOverallPanel from "../components/CC_halfOverallPanel";
 import MultiRunSelector from "../components/data-quality/MultiRunSelector";
 import RunMetricPanel from "../components/data-quality/RunMetricPanel";
+import { useUrlParamList } from "../hooks/useUrlState";
 
 export default function DataSetsPage() {
-    const [selectedRuns, setSelectedRuns] = useState([]);
-
-    const raw = useRunResource(selectedRuns, "raw");
-    // const comparison = useRunResource(selectedRuns, "comparison");
-
-    // const loading = raw.loading || comparison.loading;
-
+    const [selectedRuns, setSelectedRuns] = useUrlParamList("runs");
 
     return (
         <>
@@ -26,12 +20,14 @@ export default function DataSetsPage() {
 
             <MultiRunSelector value={selectedRuns} onChange={setSelectedRuns} />
 
-            <RunMetricPanel title="Raw" run_ids={selectedRuns} metric="raw" />
-            
-            <RunMetricPanel title="Comparison" run_ids={selectedRuns} metric="comparison" />
-            {/* <RunMetricPanel title="Comparison" run_ids={selectedRuns} metric="comparison" /> */}
+            <ErrorBoundary label="Data quality panels" resetKeys={selectedRuns}>
+                <RunMetricPanel title="Raw" run_ids={selectedRuns} metric="raw" />
 
-            <CC_halfOverallChart data={raw.data} /> 
+                <RunMetricPanel title="Comparison" run_ids={selectedRuns} metric="comparison" />
+                {/* <RunMetricPanel title="Comparison" run_ids={selectedRuns} metric="comparison" /> */}
+
+                <CC_halfOverallPanel runs={selectedRuns} />
+            </ErrorBoundary>
 
             {/* <MetricGroupCard
                 title="Raw Metrics"

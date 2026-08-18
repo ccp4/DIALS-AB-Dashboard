@@ -1,32 +1,13 @@
-import React, { useEffect, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import EChartsStat from "echarts-stat";
 
+import { useApi } from "../hooks/useApi";
+
 function CumulativeTimeTaken({ run }) {
-  const apiURL = "http://localhost:8000";
-  const [data, setData] = useState({});
+  const { data, loading } = useApi(`/runs/${run}/cumulative`);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const response = await fetch(`${apiURL}/runs/${run}/cumulative`);
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch cumulative timings");
-        }
-
-        setData(await response.json());
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    fetchData();
-  }, [run]);
-
-  if (!data.A || !data.B) {
-    return <p>Loading...</p>;
-  }
+  if (loading) return <p>Loading...</p>;
+  if (!data?.A || !data?.B) return <p>No timing data</p>;
   const bLookup = Object.fromEntries(data.B);
   const points = data.A
     .map(([dataset, aValue]) => ({

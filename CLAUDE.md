@@ -118,6 +118,16 @@ verification means running the dashboard and looking at it.
   `ssh`, which is a declared-but-unbuilt path.
 - `FRONTEND_URL` — the single origin allowed by CORS. Changing the Vite port requires changing this too.
 
+`frontend/.env` (copied from `frontend/.env.copy`, gitignored) sets:
+
+- `VITE_API_URL` — where the frontend looks for the backend. Optional locally: `src/api/client.js`
+  falls back to `http://localhost:8000`, which is where `npm run dev` puts uvicorn. Vite inlines it
+  at build time, so changing it needs a restart, not a reload.
+
+**Deploying needs both halves configured, and they point at each other:** `VITE_API_URL` at the
+backend, `FRONTEND_URL` at wherever the frontend is served. Setting only one produces a CORS
+failure that surfaces as `ApiError` with status 0.
+
 ## Two separate data roots
 
 Do not confuse these:
@@ -205,23 +215,51 @@ It is used at two levels: around each route in `App.jsx`, and around each chart 
 multi-second responses a blank page is indistinguishable from a slow one. Pass `resetKeys` (the
 selected runs, or the run id) so changing selection retries instead of leaving the error stuck.
 
-**It only catches render errors.** Failed fetches are caught in the components' own `catch` blocks
-and logged, so a dead backend currently shows a permanent "Loading…" rather than an error — see
-`CumulativeTimeTaken`. Wiring those into the boundary via the library's `useErrorBoundary()` is
-deliberately left to phase 1a, when all three fetch idioms are consolidated and it can be done once
-instead of three times.
+**It only catches render errors.** Fetch failures reach it because `useApi` forwards them with
+`useErrorBoundary().showBoundary()`, not because React catches them. Anything that throws
+asynchronously outside those hooks still needs forwarding by hand.
 
-There are **three parallel data-fetching idioms**, all live:
+## Data fetching
 
-- `src/hooks/useRunResource.js` — multi-run, run-level resources. Keeps a `{run: data}` map, prunes
-  deselected runs, fetches only newly-selected ones.
-- `src/components/data-quality/use*.js` — single-run and per-dataset fetches for the newer
-  data-quality panels.
-- Ad-hoc `useEffect` + `fetch` inside components — `RunSelector`, `MemoryProfilerPlot`,
-  `CumulativeTimeTaken`.
+**One idiom. Do not add a bare `fetch` anywhere.**
 
-The API base URL `http://localhost:8000` is hardcoded in **seven** separate files as a result. Adding
-a fetch means adding an eighth copy unless it is factored out first.
+- `src/api/client.js` — `apiGet(path, {signal})`. Base URL from `import.meta.env.VITE_API_URL`,
+  falling back to `http://localhost:8000`; this is the only place that literal appears. Throws
+  `ApiError` with a `status` field, where **status 0 means a network-level failure** (backend down,
+  CORS) as opposed to an HTTP error. Aborts rethrow the original `AbortError` instead, so callers
+  can drop them without unwrapping.
+- `src/hooks/useApi.js` — `useApi(path)` for one resource, `useApiAll([{key, path}])` for a keyed
+  set. Both abort on input change and unmount. Pass `path: null` to skip a fetch whose input is not
+  chosen yet rather than calling the hook conditionally.
+
+Two things about these that are easy to break:
+
+1. **They escalate failures to the nearest `ErrorBoundary` by default.** So the fetch must not sit
+   in the same component as the control that would let a user recover — a page that fetches beside
+   its own run selector loses the selector when the backend is down. `DataMemoryPage` and
+   `DataSetsPage` are split for exactly this reason: the selector stays in the page, the fetching
+   lives in `MemoryPanels` / `CC_halfOverallPanel` inside a boundary. Keep that shape when adding a
+   view, or pass `{throwOnError: false}` and handle it inline.
+2. **`useErrorBoundary()` throws if there is no boundary above the caller**, so every consumer of
+   these hooks must render inside one. `App.jsx` wraps both routes, which covers the tree today —
+   a component mounted outside the router would not be covered.
+
+`useApiAll` caches by path for the component's lifetime and returns exactly the keys you asked for,
+so deselecting a run drops it from the result without discarding its data and reselecting it does
+not refetch. It keys its effect on `JSON.stringify(requests)`, so building the array inline each
+render is fine and expected.
+
+The `data-quality/use*.js` hooks are three-line named wrappers over `useApi` — a naming
+convenience, not a second idiom.
+
+## URL state
+
+`src/hooks/useUrlState.js` — `useUrlParam` / `useUrlParamList` over react-router's
+`useSearchParams`. Writes use `replace`, so a multi-select does not fill the history.
+
+Both pages read selected runs from the **same `runs` parameter**, so a link carries a selection
+across the two views. Only run selection is on the URL so far; dataset, trace and axis choices are
+still `useState` and move over per-view as those views are touched (TODO 8.7).
 
 `DataSetsPage` contains substantial commented-out markup from the older `MetricGroupCard` /
 `RunSelector` approach alongside the newer `MultiRunSelector` / `RunMetricPanel` one. The migration
