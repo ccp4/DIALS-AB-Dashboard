@@ -9,7 +9,6 @@ def _clean_trace_data(raw_data):
         if "x" not in item or "y" not in item:
             continue
         if len(item["x"]) != len(item["y"]):
-            print("AAAAAAAAAAAAARRGGHHHHHH")
             continue
         cleaned.append(item)
 

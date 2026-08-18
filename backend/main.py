@@ -32,10 +32,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.add_middleware(
-#     GZipMiddleware,
-#     minimum_size=1000
-# )
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1000
+)
 
 # Register routers
 app.include_router(runs.router)
