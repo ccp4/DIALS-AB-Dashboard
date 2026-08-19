@@ -65,20 +65,18 @@ Read it before proposing changes. In particular:
   new feature ideas should be checked against it before being started.
 - Several items are load-bearing for correctness. Phase 0 is done — the blocking event loop, the
   mislabelled `MemoryABChart` axis and the gradient-only "B is faster by N%" headline are fixed.
-  Silent HTTP 200 on unknown runs is fixed (phase 2). What remains: multi-sample datasets
-  overwriting each other in `/raw`/`/memory`/`/comparison` (TODO section 0 phase 2b — the `/cohort`
-  endpoint does **not** have this bug, it was fixed there from the start) and silently dropped
-  incomplete A/B pairs in the same old endpoints (`/cohort` reports coverage correctly; phase 4 is
-  expected to move consumers onto it rather than fixing the old ones in place).
+  Silent HTTP 200 on unknown runs is fixed (phase 2). The multi-sample collision bug is fixed
+  (phase 2b) — `/raw`/`/memory`/`/comparison`/`/cohort` are all sample-precise now. What remains:
+  silently dropped incomplete A/B pairs in the old endpoints (`/cohort` reports coverage correctly;
+  phase 4 is expected to move consumers onto it rather than fixing the old ones in place).
 
-**Where the work is up to:** phase 0, phase 1 (1a–1c) and phase 2's core (8.1) are complete. The
-frontend plumbing and theme are documented below under *Data fetching*, *URL state* and *Frontend*.
-`GET /runs/{run_id}/cohort` (below, under *Backend pipeline*) is live: one row per
-`(dataset, sample)`, a backend-owned metric registry, coverage reported rather than filtered.
-**The next thing to do is phase 2b** — TODO section 0 has the write-up. It's the real fix for the
-multi-sample collision bug, deliberately split out of 8.1 because it turned out to be a second,
-separately-scoped, breaking-API-shape change (five routes gain a `sample` segment, `DatasetSelector`
-becomes sample-aware) rather than a side effect of building `/cohort`.
+**Where the work is up to:** phase 0, phase 1 (1a–1c) and phase 2 (both 8.1 and 2b) are complete.
+The frontend plumbing and theme are documented below under *Data fetching*, *URL state* and
+*Frontend*. `GET /runs/{run_id}/cohort` (below, under *Backend pipeline*) is live: one row per
+`(dataset, sample)`, a backend-owned metric registry, coverage reported rather than filtered, and
+its memory/runtime join is exact per sample. **The next thing to do is phase 3** — provenance
+(TODO section 0): extracting the A/B build hashes from `xia2-debug.txt` and warning when selected
+runs have differing A builds, both small and independent.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
@@ -175,9 +173,24 @@ Two consequences worth internalising:
    directory for the per-variant instrumentation files. Extractors handle each differently
    (`_apache_series_builder` switches on filename; `mprofile`/timing/memory extractors read
    `f.parent.name`).
-2. **`_top_dir()` returns `path.parts[1]`, which is the dataset name.** This works only because
-   `LocalWorkspace.list_files()` returns paths relative to the *workspace root*, so `parts[0]` is
-   always the run id. Changing what `list_files` returns silently rekeys every result dict.
+2. **`_sample_key()` (`xia2_extractor.py`, renamed from `_top_dir` in TODO phase 2b) returns
+   `"{parts[1]}/{parts[3]}"` — the composite `dataset/sample` id, not just the dataset.** This works
+   only because `LocalWorkspace.list_files()` returns paths relative to the *workspace root*, so
+   `parts[0]` is always the run id, `parts[1]` the dataset, `parts[3]` the sample (`parts[2]` is the
+   fixed `data` directory). Changing what `list_files` returns silently rekeys every result dict.
+   **`dataset` is a composite id everywhere in the backend, not just here** — `extract_xia2_datasets`
+   returns `"dataset/sample"` strings (always, even for the ~226 single-sample datasets, so nothing
+   downstream special-cases the format), and every route/function that takes a `dataset` parameter
+   treats it as this opaque composite string end to end, splitting it only where it actually touches
+   the filesystem (`_dataset_sample_path`). Routes that take one declare it `{dataset:path}`, not
+   `{dataset}`, so the embedded `/` survives FastAPI's routing — verified this against a live
+   instance before relying on it, including that a route with a fixed suffix after `{dataset:path}`
+   (e.g. `.../raw`) still matches correctly. **One route-ordering trap this created:** where two
+   routes share a `{dataset:path}` prefix and one is a strict suffix of the other's path shape
+   (`/memory/{dataset:path}` vs `/memory/{dataset:path}/events`), the bare one must be declared
+   *after* the more specific one, or Starlette's greedy `:path` match on the bare route swallows the
+   `/events` requests first. `routers/runs.py` relies on this ordering — don't reorder those two
+   routes without re-verifying.
 
 ## Backend pipeline
 
@@ -250,11 +263,9 @@ every `/cohort` response rather than duplicated frontend-side. `None` is a real,
 `low_resolution_limit` reflects data-collection geometry, not something either DIALS build makes
 better or worse; don't fill in a guess to make every metric have a direction.
 
-**Peak memory and cumulative runtime are joined in from the existing dataset-keyed extractors**,
-which pre-date the sample-level rekey — a multi-sample dataset's rows currently share one memory/
-runtime value (`build_cohort`'s docstring notes this). TODO section 0 phase 2b fixes the source of
-that at the root; until then, treat those two fields as dataset-precision, not sample-precision, for
-the 5 datasets with more than one sample.
+**Peak memory and cumulative runtime are joined in from `extract_xia2_memory`/
+`extract_xia2_cumulative_timing`**, keyed by the same composite `"dataset/sample"` id as everything
+else since phase 2b — exact per sample, including for the 5 datasets with more than one sample.
 
 **`routers/models.py` (`CohortResponse` etc.) is the first Pydantic response model in the repo.**
 The older routes (`/raw`, `/memory`, ...) stay untyped dicts on purpose — see TODO section 0 phase 2

@@ -38,13 +38,13 @@ def get_raw(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_raw(run_id=run_id)
 
-@router.get("/{run_id}/dataset/{dataset}/raw")
+@router.get("/{run_id}/dataset/{dataset:path}/raw")
 def get_raw_dataset(run_id: str, dataset: str):
     _ensure_run_exists(run_id)
     result = service.get_xia2_dataset_raw(run_id, dataset)
     return result
 
-@router.get("/{run_id}/dataset/{dataset}/comparison")
+@router.get("/{run_id}/dataset/{dataset:path}/comparison")
 def get_dataset_comparison(run_id: str, dataset: str):
     _ensure_run_exists(run_id)
     result = service.get_xia2_dataset_comparison(run_id, dataset)
@@ -74,21 +74,21 @@ def get_memory(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_memory(run_id=run_id)
 
-@router.get("/{run_id}/memory/{dataset}")
-def get_memory_plot(run_id: str, dataset: str):
-    """
-    Returns memory data extracted from run folder
-    """
-    _ensure_run_exists(run_id)
-    return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
-
-@router.get("/{run_id}/memory/{dataset}/events")
+@router.get("/{run_id}/memory/{dataset:path}/events")
 def get_memory_timings(run_id: str, dataset: str):
     """
     Returns memory data extracted from run folder
     """
     _ensure_run_exists(run_id)
     return service.get_xia2_dataset_timing(run_id=run_id, dataset=dataset)
+
+@router.get("/{run_id}/memory/{dataset:path}")
+def get_memory_plot(run_id: str, dataset: str):
+    """
+    Returns memory data extracted from run folder
+    """
+    _ensure_run_exists(run_id)
+    return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
 
 @router.get("/{run_id}/cumulative")
 def get_cumulative_memory_timings(run_id: str):
@@ -98,7 +98,7 @@ def get_cumulative_memory_timings(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_dataset_cumulative_timings(run_id=run_id)
 
-@router.get("/{run_id}/info/{dataset}")
+@router.get("/{run_id}/info/{dataset:path}")
 def get_info(run_id: str, dataset: str):
     """
     Returns unit cell and space group info about dataset

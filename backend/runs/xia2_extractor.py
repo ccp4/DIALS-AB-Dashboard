@@ -5,8 +5,25 @@ import re
 from bisect import bisect_left
 
 
-def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
+def _list_dataset_dirs(workspace: Workspace, run_id: str) -> list:
     return workspace.list_dirs(workspace.resolve(run_id))
+
+def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
+    """
+    Every selectable `"dataset/sample"` id for a run — always composite, even
+    for the common single-sample case, so nothing downstream has to special-case
+    which format an id is in.
+    """
+    return [
+        f"{dataset}/{sample}"
+        for dataset in _list_dataset_dirs(workspace, run_id)
+        for sample in extract_xia2_samples(workspace, run_id, dataset)
+    ]
+
+def _dataset_sample_path(run_id: str, dataset: str) -> str:
+    """`dataset` is a composite `"dataset/sample"` id — resolve it to the sample's directory."""
+    top, sample = dataset.split("/", 1)
+    return f"{run_id}/{top}/data/{sample}"
 
 def extract_xia2_samples(workspace: Workspace, run_id: str, dataset: str) -> list:
     # Some dataset dirs are missing the `data/` layer entirely (a handful of
@@ -63,21 +80,21 @@ def extract_xia2_summary(workspace: Workspace, run_id: str) -> list[dict]:
     """
     records = []
 
-    for dataset in extract_xia2_datasets(workspace, run_id):
-        for sample in extract_xia2_samples(workspace, run_id, dataset):
-            record = {"dataset": dataset, "sample": sample, "A": None, "B": None}
+    for composite_id in extract_xia2_datasets(workspace, run_id):
+        dataset, sample = composite_id.split("/", 1)
+        record = {"dataset": dataset, "sample": sample, "A": None, "B": None}
 
-            for variant in ("A", "B"):
-                path = f"{run_id}/{dataset}/data/{sample}/{variant}/xia2-summary.dat"
-                if workspace.exists(path):
-                    record[variant] = _parse_xia2_summary(workspace.read_text(path))
+        for variant in ("A", "B"):
+            path = f"{run_id}/{dataset}/data/{sample}/{variant}/xia2-summary.dat"
+            if workspace.exists(path):
+                record[variant] = _parse_xia2_summary(workspace.read_text(path))
 
-            records.append(record)
+        records.append(record)
 
     return records
 
 def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str):
-    data_src = workspace.resolve(run_id + "/" + dataset)
+    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["mprofile.dat"]
 
@@ -101,7 +118,7 @@ def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str)
     return res
 
 def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
-    data_src = workspace.resolve(run_id + "/" + dataset)
+    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["xia2-timing.json"]
 
@@ -130,12 +147,10 @@ def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
     return res
 
 def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
-    datasets = extract_xia2_datasets(workspace=workspace, run_id=run_id)
     res = {"A": [],"B": []}
 
-    for data in datasets:
-        timings = extract_xia2_timing(workspace=workspace, run_id=run_id, dataset=data)
-        total = 0
+    for composite_id in extract_xia2_datasets(workspace=workspace, run_id=run_id):
+        timings = extract_xia2_timing(workspace=workspace, run_id=run_id, dataset=composite_id)
 
         for process in ("A", "B"):
             total = 0
@@ -143,12 +158,12 @@ def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
             for command in timings.get(process, []):
                 total += command.get("runtime", 0)
 
-            res[process].append([data, total])
+            res[process].append([composite_id, total])
 
     return res
 
 def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
-    data_src = workspace.resolve(run_id + "/" + dataset)
+    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
 
@@ -167,7 +182,7 @@ def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
     return res
 
 def extract_xia2_space_group(workspace: Workspace, run_id: str, dataset: str):
-    data_src = workspace.resolve(run_id + "/" + dataset)
+    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
 
@@ -196,10 +211,10 @@ def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
     )
 
 def extract_xia2_dataset_raw(workspace: Workspace, run_id: str, dataset: str) -> dict:
-    return extract_xia2_raw(workspace=workspace, run_id=f"{run_id}/{dataset}")
+    return extract_xia2_raw(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
 
 def extract_xia2_dataset_comparison(workspace: Workspace, run_id: str, dataset: str) -> dict:
-    return extract_xia2_comparison(workspace=workspace, run_id=f"{run_id}/{dataset}")
+    return extract_xia2_comparison(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
 
 def extract_xia2_comparison(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(
@@ -215,8 +230,15 @@ def extract_xia2_memory(workspace: Workspace, run_id: str) -> dict:
         ["peak_memory-integrate.txt"],
     )
 
-def _top_dir(path: Path) -> str:
-    return path.parts[1] if len(path.parts) > 1 else "overall"
+def _sample_key(path: Path) -> str:
+    # Composite `"dataset/sample"` when the path is deep enough to have both
+    # (parts[1]/parts[3], per the workspace layout in CLAUDE.md); falls back
+    # the way the old dataset-only `_top_dir` did for shorter paths.
+    if len(path.parts) > 3:
+        return f"{path.parts[1]}/{path.parts[3]}"
+    if len(path.parts) > 1:
+        return path.parts[1]
+    return "overall"
 
 def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> dict:
     files = workspace.list_files(workspace.resolve(run_id))
@@ -228,7 +250,7 @@ def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> 
         if f.name not in wanted:
             continue
 
-        td = _top_dir(f)
+        td = _sample_key(f)
         result.setdefault(td, {})
         result[td][f.name] = json.loads(workspace.read_text(f))
 
@@ -244,8 +266,8 @@ def _extract_cc_half_from_raw(workspace: Workspace, run_id: str, names: list[str
         if f.name not in wanted:
             continue
 
-        td = _top_dir(f)
-        
+        td = _sample_key(f)
+
         data = json.loads(workspace.read_text(f))
         cc_half = data.get("cc_half", {}).get("data", {})
         for trace in cc_half:
@@ -267,7 +289,7 @@ def _extract_memory_files(workspace: Workspace, run_id: str, names: list[str]) -
         if f.name not in wanted:
             continue
 
-        td = _top_dir(f)
+        td = _sample_key(f)
         matches = pattern.findall(workspace.read_text(f))
         value = float(matches[-1]) if matches else None
 

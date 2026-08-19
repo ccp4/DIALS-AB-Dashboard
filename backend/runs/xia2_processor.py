@@ -112,32 +112,31 @@ def _cumulative_timing_lookup(cumulative_timing: dict) -> dict:
     lookup = {}
 
     for variant in ("A", "B"):
-        for dataset, total in cumulative_timing.get(variant, []):
-            lookup.setdefault(dataset, {})[variant] = total
+        for key, total in cumulative_timing.get(variant, []):
+            lookup.setdefault(key, {})[variant] = total
 
     return lookup
 
 def build_cohort(summary_records: list[dict], memory: dict, cumulative_timing: dict) -> tuple[list[dict], dict]:
     """
     Joins the per-sample `xia2-summary.dat` records with the existing
-    (dataset-keyed) peak-memory and cumulative-timing extractions.
-
-    Peak memory/runtime are dataset-keyed, not sample-keyed, so a
-    multi-sample dataset's value is duplicated across its sample rows here —
-    a known approximation until the (dataset, sample) rekey of those
-    extractors (TODO 2b) makes them sample-precise too.
+    peak-memory and cumulative-timing extractions, both keyed by the same
+    `"dataset/sample"` composite id (TODO phase 2b) — so this join is exact
+    even for the datasets with more than one sample.
     """
-    timing_by_dataset = _cumulative_timing_lookup(cumulative_timing)
+    timing_by_key = _cumulative_timing_lookup(cumulative_timing)
 
     rows = []
     counts = {"complete": 0, "missing_a": 0, "missing_b": 0}
 
     for record in summary_records:
         dataset = record["dataset"]
-        mem = memory.get(dataset, {})
-        timing = timing_by_dataset.get(dataset, {})
+        sample = record["sample"]
+        key = f"{dataset}/{sample}"
+        mem = memory.get(key, {})
+        timing = timing_by_key.get(key, {})
 
-        row = {"dataset": dataset, "sample": record["sample"], "A": None, "B": None}
+        row = {"dataset": dataset, "sample": sample, "A": None, "B": None}
 
         for variant in ("A", "B"):
             summary = record.get(variant)

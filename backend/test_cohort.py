@@ -7,6 +7,7 @@ metric registry keys are exactly the kind of thing CLAUDE.md warns breaks
 charts silently if renamed without noticing.
 """
 
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -44,14 +45,22 @@ Spacegroup: P 21 21 21
 """
 
 
-def _write_sample(root: Path, dataset: str, sample: str, variants: str):
+def _write_sample(root: Path, dataset: str, sample: str, variants: str, peak_memory: float = 512.0, runtime: float = 10.0):
     for variant in variants:
         variant_dir = root / RUN_ID / dataset / "data" / sample / variant
         variant_dir.mkdir(parents=True, exist_ok=True)
         (variant_dir / "xia2-summary.dat").write_text(SUMMARY_TEXT)
         (variant_dir / "peak_memory-integrate.txt").write_text(
-            "mprofile-integrate.dat\t512.0 MiB"
+            f"mprofile-integrate.dat\t{peak_memory} MiB"
         )
+        (variant_dir / "xia2-timing.json").write_text(json.dumps([
+            {
+                "short_command": "dials.integrate",
+                "time_start": 0.0,
+                "time_end": runtime,
+                "runtime": runtime,
+            }
+        ]))
 
 
 def _build_fixture_workspace(tmp_path: Path) -> Path:
@@ -60,8 +69,11 @@ def _build_fixture_workspace(tmp_path: Path) -> Path:
 
     _write_sample(tmp_path, "complete-ds", "sample-1", "AB")
     _write_sample(tmp_path, "partial-ds", "sample-1", "A")
-    _write_sample(tmp_path, "multi-ds", "sample-1", "AB")
-    _write_sample(tmp_path, "multi-ds", "sample-2", "AB")
+    # Different peak-memory/runtime per sample so the cohort join can be
+    # caught duplicating one sample's value across the other's row — the
+    # multi-sample collision bug this phase (2b) fixes.
+    _write_sample(tmp_path, "multi-ds", "sample-1", "AB", peak_memory=100.0, runtime=10.0)
+    _write_sample(tmp_path, "multi-ds", "sample-2", "AB", peak_memory=200.0, runtime=20.0)
 
     return tmp_path
 
@@ -102,6 +114,16 @@ def test_cohort_shape(tmp_path, monkeypatch):
     assert complete["A"]["cc_half"] == {"overall": 0.993, "inner": 0.988, "outer": 0.322}
     assert complete["A"]["spacegroup"] == "P 21 21 21"
     assert complete["A"]["peak_memory"] == 512.0
+
+    # The multi-sample collision bug (TODO section 1, fixed in phase 2b): each
+    # sample must get its own memory/runtime, not one dataset-wide value
+    # duplicated across both rows.
+    multi_1 = rows_by_key[("multi-ds", "sample-1")]
+    multi_2 = rows_by_key[("multi-ds", "sample-2")]
+    assert multi_1["A"]["peak_memory"] == 100.0
+    assert multi_2["A"]["peak_memory"] == 200.0
+    assert multi_1["A"]["cumulative_runtime"] == 10.0
+    assert multi_2["A"]["cumulative_runtime"] == 20.0
 
     # The registry's keys are read by the frontend's metric picker (phase 4) —
     # a rename here needs to be a deliberate, grep-checked decision.

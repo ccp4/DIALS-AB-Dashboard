@@ -11,12 +11,12 @@ deployability, provenance, and clear failure reporting well above what a persona
 
 ## 0. Order of work
 
-> **Resuming? Start here.** Phase 0, phase 1 (1a–1c) and phase 2's core (8.1, the `/cohort`
-> endpoint) are complete. `GET /runs/{run_id}/cohort` is live, one row per `(dataset, sample)`,
-> with a metric registry and coverage reporting rather than silent filtering. **The next task is
-> 2b**, below — a real bug (the multi-sample collision) that turned out **not** to be a hard
-> dependency of 8.1 after all, so it was scoped out and picked up on its own. Read 2b's note before
-> starting; it changes five routes' shapes, not just one file.
+> **Resuming? Start here.** Phase 0, phase 1 (1a–1c) and all of phase 2 (8.1's `/cohort` endpoint
+> and 2b's multi-sample rekey) are complete. `GET /runs/{run_id}/cohort` is live, one row per
+> `(dataset, sample)`, with a metric registry and exact per-sample coverage/memory/runtime. Every
+> `dataset` parameter in the backend — routes, extractors — is now a composite `"dataset/sample"`
+> id; see CLAUDE.md's workspace-layout note before touching any of `xia2_extractor.py`'s per-dataset
+> functions. **The next task is phase 3 — provenance**, below: small and independent.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -320,41 +320,57 @@ are already editing, not because they are urgent.
       (`/cohort` doesn't go through `_apache_series_builder` at all), but the same *kind* of
       silent-breakage risk, for the registry instead.
       `pytest`/`httpx` added to `requirements.txt` — first test dependencies in the repo.
-- [ ] `DatasetSelector` likely becomes a dataset+sample selector here — `7ris` offering one entry
+- [x] `DatasetSelector` likely becomes a dataset+sample selector here — `7ris` offering one entry
       when it holds two different crystals is wrong.
-      **Moved to 2b** — see below for why it's coupled to the rekey rather than separable from it.
+      **Resolved in 2b without touching `DatasetSelector` at all** — `7ris`'s two samples are
+      already two separate composite-id entries in whatever list of datasets it's given (see 2b),
+      so the component needed no change; the fix was one level down, in what `dataset` means.
 
-### Phase 2b — rekey the old per-dataset extractors by `(dataset, sample)`
+### Phase 2b — rekey the old per-dataset extractors by `(dataset, sample)`. Done
 
-Split out of phase 2 above: real, and the direct fix for the multi-sample collision bug (section 1),
-but a second large, separately-testable, breaking-API-shape change rather than a side effect of
-building `/cohort`. Traced through before deferring it (not just asserted):
+Split out of phase 2 above: the direct fix for the multi-sample collision bug (section 1), but a
+second, separately-testable, API-shape change rather than a side effect of building `/cohort`.
 
-- `_top_dir` (`xia2_extractor.py`) feeds `_extract_json_files`/`_extract_memory_files`, which back
-  `/raw`, `/comparison`, `/memory`. Rekeying those to a composite `"{dataset}/{sample}"` string is
-  **harmless** — `CC_halfOverallChart`, `MemoryRankChart`, `MemoryABChart`, `MemoryOverlayChart`,
-  `SingleMemoryPlot`, `CumulativeTimeTaken` all already treat the top-level key as an opaque label
-  string, so it "just works" and the labels get more precise instead of colliding. No frontend
-  change needed for this part.
-- But it **breaks** `get_xia2_dataset_raw`/`get_xia2_dataset_comparison`'s `processed.get(dataset,
-  {})` lookup outright — after the rekey the plain dataset name is never a key, so every dataset
-  (not just the 5 multi-sample ones) would start returning `{}`. Fixing that forces `sample` all the
-  way through: `extract_xia2_dataset_memplot`/`extract_xia2_timing`/`get_xia2_cell_space` need a
-  `sample` param (their own A/B-level collision, scoped to one dataset, disappears once they're
-  scoped to one sample too); five routes (`/dataset/{dataset}/raw`, `/dataset/{dataset}/comparison`,
-  `/memory/{dataset}`, `/memory/{dataset}/events`, `/info/{dataset}`) need a `sample` segment; a new
-  `GET /runs/{run_id}/dataset/{dataset}/samples` route (`extract_xia2_samples` already exists,
-  written for 8.1) is needed for the frontend to list them.
-- Frontend: `DatasetSelector` (data-quality) and `MemoryProfilerPlot`'s dataset `Autocomplete` both
-  need to become sample-aware. Cheapest good option given only 5 datasets have >1 sample: a flat
-  list of `"dataset"` (single-sample) / `"dataset / sample"` (multi-sample) composite labels rather
-  than a two-level dependent dropdown — avoids a UI redesign for a handful of datasets.
-  `RunMetricPanel`'s URL-encoded `${metric}_ds` map and `MemoryProfilerPlot`'s `ds_${run}` param
-  (TODO 0, phase 1b) just store the composite string as the value; no URL-state mechanism changes
-  needed.
-- Until this lands, `/cohort`'s peak-memory/cumulative-runtime values are duplicated across a
-  multi-sample dataset's rows (documented in `build_cohort`'s docstring) — this is what makes it
-  worth doing soon rather than indefinitely, not urgent.
+**Built simpler than the write-up below originally called for** — discussed with the author before
+implementing: instead of threading a new `sample` parameter through every function/route/frontend
+call site, `dataset` **became** the composite `"dataset/sample"` id everywhere it was already just
+an opaque string being passed through, which was almost everywhere:
+
+- `extract_xia2_datasets` now returns composite ids directly (always, even for the ~226
+  single-sample datasets — no format-sniffing anywhere downstream). `get_datasets`/
+  `get_run_metadata` needed **no code change**, since it already just returns whatever that function
+  gives it.
+- `_top_dir` → `_sample_key`, deriving the composite key from the path directly. Feeds
+  `_extract_json_files`/`_extract_memory_files` (→ `/raw`, `/comparison`, `/memory`) — confirmed
+  harmless there, every chart consumer already treats the key as an opaque label.
+- `extract_xia2_dataset_raw`/`extract_xia2_dataset_comparison`/`extract_xia2_dataset_memplot`/
+  `extract_xia2_timing`/`extract_xia2_unit_cell`/`extract_xia2_space_group` resolve through a new
+  `_dataset_sample_path(run_id, dataset)` helper (splits the composite id, resolves to
+  `run_id/dataset/data/sample`) instead of naive `run_id + "/" + dataset` concatenation. **No new
+  parameter, no `service.py` changes** — `dataset` was already just a string flowing through.
+- `extract_xia2_cumulative_timing` iterates the composite id list directly instead of bare dataset
+  names — this **also resolved `build_cohort`'s "known approximation"** (multi-sample datasets'
+  memory/runtime being duplicated across rows) as a side effect, once `extract_xia2_memory` and this
+  function were both composite-keyed. Verified against real data: `7ris`'s two samples now show
+  genuinely different peak memory (16478 vs 12816 MiB) and runtime (1068 vs 1585 s) instead of an
+  identical duplicated value.
+- Routes: only the path *declaration* changed, `{dataset}` → `{dataset:path}`, on the five routes
+  that take one — no new segment. Verified directly against a live FastAPI instance (not assumed)
+  that this correctly captures an embedded `/`, including percent-encoded `%2F`, even with a fixed
+  suffix segment after it (e.g. `.../raw`). **Found and fixed a real route-ordering trap this
+  created**: `/memory/{dataset:path}` and `/memory/{dataset:path}/events` share a prefix where one
+  is a strict suffix-extension of the other, and Starlette's greedy `:path` match on whichever is
+  declared *first* swallows the other's requests. The bare route now must be declared after the
+  `/events` one — confirmed both orderings against a live instance before picking the working one.
+- **Frontend: zero changes.** `DatasetSelector`/`useListDatasets`, `RunPanel`/`useDatasetResource`,
+  `RunMetricPanel`'s `${metric}_ds` URL map, `MemoryProfilerPlot`'s dataset `Autocomplete`/
+  `ds_${run}` param — all already treated `dataset` as an opaque string end to end, so they started
+  working correctly the moment the string itself became composite. No dependent dataset→sample
+  dropdown, no new `datasetSamples.js` utility — neither was needed.
+- `backend/test_cohort.py` strengthened: `multi-ds`'s two fixture samples now write different
+  peak-memory/runtime values, so the test would have caught the pre-fix duplication rather than
+  passing regardless (its previous fixture used the same value for both, which couldn't distinguish
+  a real per-sample join from the bug it was meant to catch).
 
 ### Phase 3 — provenance
 
@@ -430,7 +446,7 @@ facet until it exists.
       dataset name. Note the whole top-level `series`/`options` block appears to be dead — the
       component returns the per-run grid built from a shadowed inner `options`.
 
-- [ ] **Multi-sample datasets silently lose a sample.** [`_top_dir`](backend/runs/xia2_extractor.py#L150)
+- [x] **Multi-sample datasets silently lose a sample.** [`_top_dir`](backend/runs/xia2_extractor.py#L150)
       returns the *dataset* name, and both [`_extract_json_files`](backend/runs/xia2_extractor.py#L153)
       and [`_extract_memory_files`](backend/runs/xia2_extractor.py#L190) write `result[dataset][...]`.
       Where a dataset holds two samples the second overwrites the first — no error, no warning.
@@ -438,12 +454,10 @@ facet until it exists.
       `frpha_20731_a_vl2-apo_9cwl`, `idp95897_8ew4`. `7ris`'s two samples are *different crystals*
       (`GLVaseHo_21148c5b_1_2_9.001` and `GLVase_Ca_we21108b7b_1_2_2.001`), so this is not a
       harmless duplicate-sweep case. 227 dataset directories hold 232 samples.
-      *Fix: key results by `(dataset, sample)`. This rekeys every result dict — see the warning about
-      `_top_dir` in CLAUDE.md.* **Tracked as TODO section 0 phase 2b** — not fixed by the cohort
-      table (8.1): the new `/cohort` extractor parses `xia2-summary.dat` fresh and never calls
-      `_top_dir`, so it doesn't inherit this bug, but `_top_dir` itself — and therefore `/raw`,
-      `/memory`, `/comparison` — is still affected. See phase 2b for why fixing it is a second,
-      separately-scoped, breaking-API-shape change rather than part of building `/cohort`.
+      Fixed in TODO section 0 phase 2b: `_top_dir` → `_sample_key`, returning a composite
+      `"dataset/sample"` key; every `dataset` parameter in the backend is that composite id now.
+      Verified against real data — `7ris`'s two samples produce genuinely different values instead
+      of one silently overwriting the other.
 
 - [x] **`_apache_series_builder` raises `UnboundLocalError` on unknown filenames.**
       [xia2_processor.py:88-97](backend/runs/xia2_processor.py#L88-L97) — no `else` branch, so
@@ -788,11 +802,10 @@ the first. Build in order.
 - [x] **Row granularity must be the sample, not the dataset.** Depends on the collision bug in
       section 1 — a cohort table keyed by dataset would bake that silent data loss into every new
       feature.
-      Done for `/cohort` specifically: it parses `xia2-summary.dat` fresh and never goes through the
-      buggy `_top_dir`, so it was never at risk of inheriting the bug. The bug itself, in `_top_dir`
-      and therefore `/raw`/`/memory`/`/comparison`, is still open — split out as **section 0 phase
-      2b**, since fixing it turned out to be a second, separately-scoped, breaking-API-shape change
-      (traced through in 2b's write-up), not a side effect of building this table.
+      Done for `/cohort` specifically first: it parses `xia2-summary.dat` fresh and never went
+      through the buggy `_top_dir`, so it was never at risk of inheriting the bug. `_top_dir` itself
+      — and therefore `/raw`/`/memory`/`/comparison` — was fixed separately in **section 0 phase
+      2b**, once it turned out fixing it was smaller than originally scoped (see 2b's write-up).
 
 - [x] **Report coverage rather than filtering it.** Measured on `xia2-irrmc-inflate-2700`: 227
       dataset directories → 232 samples, of which 231 have an A summary and 229 a B, giving ~229
