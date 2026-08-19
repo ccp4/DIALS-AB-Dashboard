@@ -1,5 +1,8 @@
-import ReactECharts from "echarts-for-react";
 import EChartsStat from "echarts-stat";
+
+import Chart from "./Chart";
+import { tokens } from "../theme/tokens";
+import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
 
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit
@@ -88,7 +91,7 @@ function MemoryABChart({ data }) {
                         silent: true,
                         animation: false,
                         lineStyle: {
-                            color: "#999",
+                            color: tokens.line.reference,
                             width: 1,
                             type: "dashed",
                         },
@@ -102,7 +105,7 @@ function MemoryABChart({ data }) {
                         silent: true,
                         animation: false,
                         lineStyle: {
-                            color: "#d62728",
+                            color: tokens.line.annotation,
                             width: 2,
                         },
                         z: 1,
@@ -114,6 +117,7 @@ function MemoryABChart({ data }) {
                         symbolSize: 6,
 
                         itemStyle: {
+                            color: tokens.ink.base,
                             opacity: 0.55,
                         },
 
@@ -121,7 +125,7 @@ function MemoryABChart({ data }) {
                             scale: true,
                             itemStyle: {
                                 opacity: 1,
-                                borderColor: "#000",
+                                borderColor: tokens.ink.strong,
                                 borderWidth: 1,
                             },
                         },
@@ -151,11 +155,11 @@ function MemoryABChart({ data }) {
                                         r: 5,
                                     },
                                     style: {
-                                        fill: "rgba(255,255,255,0.85)",
-                                        stroke: "#ccc",
+                                        fill: tokens.surface.overlay,
+                                        stroke: tokens.surface.border,
                                         lineWidth: 1,
                                         shadowBlur: 5,
-                                        shadowColor: "rgba(0,0,0,0.1)",
+                                        shadowColor: tokens.surface.border,
                                     },
                                 },
                                 {
@@ -164,8 +168,8 @@ function MemoryABChart({ data }) {
                                     top: 10,
                                     style: {
                                         text: regressionSummary,
-                                        font: "14px sans-serif",
-                                        fill: "#333",
+                                        font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
+                                        fill: tokens.ink.base,
                                         lineHeight: 20,
                                     },
                                 },
@@ -195,6 +199,10 @@ function MemoryABChart({ data }) {
                         name: "A",
                         nameLocation: "middle",
                         nameGap: 30,
+                        nameTextStyle: {
+                            color: tokens.variant.A,
+                            fontWeight: 600,
+                        },
                         min: 0,
                         max: maxValue,
                         scale: true,
@@ -205,6 +213,10 @@ function MemoryABChart({ data }) {
                         name: "B",
                         nameLocation: "middle",
                         nameGap: 40,
+                        nameTextStyle: {
+                            color: tokens.variant.B,
+                            fontWeight: 600,
+                        },
                         min: 0,
                         max: maxValue,
                         scale: true,
@@ -214,26 +226,19 @@ function MemoryABChart({ data }) {
                         containLabel: true,
                     },
 
-                    dataZoom: [
-                        {
-                            type: "inside",
-                        },
-                        {
-                            type: "slider",
-                        },
-                    ],
+                    dataZoom: STANDARD_DATA_ZOOM,
 
                     series
                 };
 
                 return (
-                    <ReactECharts
+                    <Chart
                         key={run}
                         option={options}
                         notMerge
                         lazyUpdate
                         style={{
-                            height: 450,
+                            height: tokens.chart.height.panel,
                             width: "100%",
                         }}
                     />

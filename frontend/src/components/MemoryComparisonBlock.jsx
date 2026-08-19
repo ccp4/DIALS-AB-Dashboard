@@ -1,5 +1,4 @@
-import ReactECharts from "echarts-for-react";
-import { Grid, Typography } from "@mui/material";
+import { Grid } from "@mui/material";
 import MemoryOverlayChart from "./MemoryOverlayChart";
 import SingleMemoryPlot from "./SingleMemoryPlot";
 

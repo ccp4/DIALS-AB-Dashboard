@@ -12,7 +12,7 @@ import { Link, Outlet } from "react-router-dom";
 
 const drawerWidth = "15vw";
 
-export default function DashboardLayout({ children }) {
+export default function DashboardLayout() {
   return (
     <Box sx={{ display: "flex" }}>
       {/* Top bar */}

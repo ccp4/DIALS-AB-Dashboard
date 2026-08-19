@@ -68,6 +68,15 @@ Read it before proposing changes. In particular:
   What remains in that category: silent HTTP 200 on unknown runs, multi-sample datasets overwriting
   each other, and silently dropped incomplete A/B pairs. Prefer fixing those over adding features.
 
+**Where the work is up to:** phase 0 and all of phase 1 (1a, 1b, 1c) are complete. The plumbing —
+API client, one fetch idiom, URL-state mechanism — and the theme (`src/theme/`, `Chart.jsx`) are
+documented below under *Data fetching*, *URL state* and *Frontend*. The in-flight
+`MetricGroupCard`/`RawDataChart` → `RunMetricPanel`/`RunPanel`/`DatasetChart` migration is finished
+and the old pair deleted; chart chrome, sizing and loading states are done per TODO.md section 0's
+phase 1c (two of its four items landed smaller than originally written up — see that section for
+why). `npm --prefix frontend run lint` is at zero. **The next thing to do is phase 2** — the cohort
+table (8.1), the backend work everything in phase 4 depends on.
+
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
 done in the wrong order.
@@ -192,7 +201,7 @@ Two consequences worth internalising:
 substring match on that name:
 
 - `CC_halfOverallChart` — `"A - d_min"`, `"B - d_min"`, `"d_min"`
-- `RawDataChart` and `DatasetChart` — `"fit"`, to pick out fitted curves within `cc_half`
+- `DatasetChart` — `"fit"`, to pick out fitted curves within `cc_half`
 
 **Renaming in the builder breaks those charts silently** — no error, just an empty plot. Grep the
 frontend for the trace name before changing it.
@@ -247,25 +256,32 @@ Two things about these that are easy to break:
 `useApiAll` caches by path for the component's lifetime and returns exactly the keys you asked for,
 so deselecting a run drops it from the result without discarding its data and reselecting it does
 not refetch. It keys its effect on `JSON.stringify(requests)`, so building the array inline each
-render is fine and expected.
+render is fine and expected. `data` is populated from cache before a newly-added key resolves, so a
+consumer should render from `data` unconditionally and use `requests` minus `Object.keys(data)` to
+show a partial loading state — gating the whole render on the aggregate `loading` boolean blanks
+already-loaded keys every time a new one is added. `MemoryPanels` and `CC_halfOverallPanel` do this.
 
 The `data-quality/use*.js` hooks are three-line named wrappers over `useApi` — a naming
 convenience, not a second idiom.
 
 ## URL state
 
-`src/hooks/useUrlState.js` — `useUrlParam` / `useUrlParamList` over react-router's
-`useSearchParams`. Writes use `replace`, so a multi-select does not fill the history.
+`src/hooks/useUrlState.js` — `useUrlParam` / `useUrlParamList` / `useUrlParamMap` over
+react-router's `useSearchParams`. Writes use `replace`, so a multi-select does not fill the
+history. `useUrlParamMap` is for a selection keyed by a dynamic id set (e.g. one dataset choice per
+selected run) that the other two don't cover; like `useUrlParamList` its setter takes the full next
+value rather than a `useState`-style updater.
 
 Both pages read selected runs from the **same `runs` parameter**, so a link carries a selection
-across the two views. Only run selection is on the URL so far; dataset, trace and axis choices are
-still `useState` and move over per-view as those views are touched (TODO 8.7).
+across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice and sync toggle
+(`${metric}_ds` as a map, `${metric}_sync`, so the "Raw" and "Comparison" panels on `DataSetsPage`
+don't collide), and `MemoryProfilerPlot`'s dataset choice (`ds_${run}`). Still `useState`: trace
+selection within `DatasetChart`, and the axis pickers phase 4's views will introduce (TODO 8.7).
 
-`DataSetsPage` contains substantial commented-out markup from the older `MetricGroupCard` /
-`RunSelector` approach alongside the newer `MultiRunSelector` / `RunMetricPanel` one. The migration
-to the data-quality components is in progress and not finished, so **the old markup stays until it
-is complete** — don't delete it as cleanup.
+## Chart chrome
 
-`src/utils/baseLineChartOptions.js` looks like shared chart config but has **no importers** — every
-chart builds its ECharts `option` object inline and independently, so axis/tooltip/dataZoom setup is
-duplicated across components. Editing that file changes nothing until something imports it.
+`src/theme/chartChrome.js` exports `STANDARD_DATA_ZOOM` and `STANDARD_LEGEND` — the only two
+ECharts option fragments that turned out to be byte-identical across charts when checked directly
+(dataZoom in six charts, legend placement in three). Grid margins and tooltip formatters differ per
+chart and stay inline; there was no larger shared shape to extract into a factory. Chart heights
+come from `tokens.chart.height.*` (`sparkline`/`panel`/`full`/`tall`) rather than literals.

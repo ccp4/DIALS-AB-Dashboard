@@ -1,38 +1,46 @@
-import { useState, useEffect, useMemo } from "react";
-import ReactECharts from "echarts-for-react";
+import { useState, useMemo } from "react";
+
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
+import { variantOf, variantSeriesStyle } from "../../theme/variant";
 
 function DatasetChart({ data }) {
   const dataset = Array.isArray(data) ? data[0] : data;
   const keys = useMemo(() => Object.keys(dataset ?? {}), [dataset]);
   const [selectedKey, setSelectedKey] = useState("");
-  console.log(data)
-
-  useEffect(() => {
-    if (keys.length > 0) {
-      setSelectedKey(keys[0]);
-    }
-  }, [keys]);
 
   if (!dataset || keys.length === 0) {
     return <div>No data</div>;
   }
 
-  let traces = dataset[selectedKey] ?? [];
-  console.log(traces)
+  // Falls back to the first key without an effect: a selection left over
+  // from a previous dataset (or no selection yet) is derived during render,
+  // the way `useApi` derives `loading`, rather than synced afterwards.
+  const activeKey = keys.includes(selectedKey) ? selectedKey : keys[0];
+
+  let traces = dataset[activeKey] ?? [];
 
   // if (selectedKey === "cc_half" && traces.length != 0) {
   //   traces = traces.filter(trace => trace.name.includes("fit"));
   // }
 
+  // Colour carries the variant, so several traces of the same variant separate
+  // by line style instead.
+  const seen = { A: 0, B: 0 };
+
   const series = traces.map(( trace , i) => {
+    const variant = variantOf(trace.name);
+
     return {
       name: trace.name ?? `Trace ${i + 1}`,
       type: "line",
       showSymbol: false,
       data: trace.data,
+      ...(variant ? variantSeriesStyle(variant, seen[variant]++) : {}),
     }})
   
-  const shouldSelectFits = selectedKey === "cc_half" && traces.length > 0;
+  const shouldSelectFits = activeKey === "cc_half" && traces.length > 0;
 
   const legend = {
     orient: "vertical",
@@ -62,10 +70,7 @@ function DatasetChart({ data }) {
       },
     },
     legend,
-    dataZoom: [
-      { type: "inside" },
-      { type: "slider" },
-    ],
+    dataZoom: STANDARD_DATA_ZOOM,
     xAxis: {
       type: "value",
       name: "Resolution (d)",
@@ -80,7 +85,7 @@ function DatasetChart({ data }) {
     },
     yAxis: {
       type: "value",
-      name: `${selectedKey}`,
+      name: `${activeKey}`,
       nameLocation: "middle",
       nameRotate: 90,
       nameGap: 30,
@@ -98,7 +103,7 @@ function DatasetChart({ data }) {
   return (
     <>
       <select
-        value={selectedKey}
+        value={activeKey}
         onChange={(e) => setSelectedKey(e.target.value)}
       >
         {keys.map((key) => (
@@ -108,10 +113,10 @@ function DatasetChart({ data }) {
         ))}
       </select>
 
-      <ReactECharts
+      <Chart
         option={option}
         style={{
-          height: 600,
+          height: tokens.chart.height.full,
           width: "40vw"
         }}
         notMerge={true}

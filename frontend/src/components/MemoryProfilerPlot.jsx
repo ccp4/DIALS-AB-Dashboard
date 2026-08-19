@@ -1,11 +1,24 @@
-import { useState } from "react";
 import { Autocomplete, TextField, Box } from "@mui/material";
-import ReactECharts from "echarts-for-react";
 
+import Chart from "./Chart";
+import LoadingState from "./LoadingState";
+import { tokens, withAlpha } from "../theme/tokens";
 import { useApi } from "../hooks/useApi";
+import { useUrlParam } from "../hooks/useUrlState";
+
+/**
+ * Background bands for the three long-running stages. Drawn from the
+ * non-variant palette on purpose: a blue or orange band would read as A or B
+ * on a chart that is already entirely one variant.
+ */
+const STAGE_BANDS = {
+  "dials.find_spots": withAlpha(tokens.series[2], 0.25),
+  "dials.index": withAlpha(tokens.series[4], 0.25),
+  "dials.integrate": withAlpha(tokens.series[0], 0.25),
+};
 
 function MemoryProfilerPlot({ run }) {
-  const [selectedDataset, setSelectedDataset] = useState(null);
+  const [selectedDataset, setSelectedDataset] = useUrlParam(`ds_${run}`);
 
   const { data: runInfo, loading: loadingDatasets } = useApi(`/runs/${run}`);
 
@@ -25,9 +38,9 @@ function MemoryProfilerPlot({ run }) {
 
   const loadingMemory = memory.loading || commands.loading || info.loading;
 
-  if (loadingDatasets) return <p>Loading datasets...</p>;
+  if (loadingDatasets) return <LoadingState label="Loading datasets..." />;
 
-  const makeOption = (title, samples, commands) => {
+  const makeOption = (title, samples, commands, variant) => {
       if (!samples || samples.length === 0) {
         return {
           title: {
@@ -43,14 +56,8 @@ function MemoryProfilerPlot({ run }) {
       m
     ]);
 
-const importantCommands = {
-  "dials.find_spots": "rgba(255, 99, 132, 0.25)",
-  "dials.index": "rgba(54, 162, 235, 0.25)",
-  "dials.integrate": "rgba(75, 192, 192, 0.25)"
-};
-
 const markAreas = commands.map(cmd => {
-  const important = importantCommands[cmd.command];
+  const important = STAGE_BANDS[cmd.command];
 
   return [
     {
@@ -66,7 +73,7 @@ const markAreas = commands.map(cmd => {
       label: {
         show: true,
         color: important
-          ? "#333"
+          ? tokens.ink.base
           : "rgba(0,0,0,0)",
         position: "insideTop"
       }
@@ -79,7 +86,8 @@ const markAreas = commands.map(cmd => {
 
     return {
       title: {
-        text: title
+        text: title,
+        textStyle: { color: tokens.variant[variant] }
       },
 
       tooltip: {
@@ -102,17 +110,19 @@ const markAreas = commands.map(cmd => {
           type: "line",
           showSymbol: false,
           data: relative,
+          itemStyle: { color: tokens.variant[variant] },
+          lineStyle: { color: tokens.variant[variant] },
 
           markArea: {
             silent: false,
 
             emphasis: {
               itemStyle: {
-                color: "rgba(80,120,255,0.2)"
+                color: withAlpha(tokens.brand.primary, 0.2)
               },
 
               label: {
-                color: "#333"
+                color: tokens.ink.base
               }
             },
 
@@ -139,7 +149,7 @@ const markAreas = commands.map(cmd => {
         )}
       />
 
-      {loadingMemory && <p>Loading...</p>}
+      {loadingMemory && <LoadingState label="Loading memory profile..." />}
 
       {memoryData && commandData && infoData && (
         <>
@@ -157,22 +167,24 @@ const markAreas = commands.map(cmd => {
               </div>
             ))}
           </div>
-          <ReactECharts
+          <Chart
             option={makeOption(
               "DIALS A",
               memoryData.A,
-              commandData.A
+              commandData.A,
+              "A"
             )}
-            style={{ height: 450 }}
+            style={{ height: tokens.chart.height.panel }}
           />
 
-          <ReactECharts
+          <Chart
             option={makeOption(
               "DIALS B",
               memoryData.B,
-              commandData.B
+              commandData.B,
+              "B"
             )}
-            style={{ height: 450, marginTop: 30 }}
+            style={{ height: tokens.chart.height.panel, marginTop: 30 }}
           />
         </>
       )}

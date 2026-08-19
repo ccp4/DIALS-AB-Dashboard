@@ -3,6 +3,7 @@ import {
   TextField,
 } from "@mui/material";
 
+import LoadingState from "../LoadingState";
 import { useAllRuns } from "./useAllRuns";
 
 function MultiRunSelector({ value, onChange }) {
@@ -12,7 +13,7 @@ function MultiRunSelector({ value, onChange }) {
     loading
   } = useAllRuns();
 
-  if (loading) return <p>Loading runs...</p>;
+  if (loading) return <LoadingState label="Loading runs..." />;
 
   return (
     <Autocomplete

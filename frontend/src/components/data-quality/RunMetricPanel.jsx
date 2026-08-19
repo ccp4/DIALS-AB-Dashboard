@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import {
     Card,
     CardContent,
@@ -8,14 +8,30 @@ import {
     FormControlLabel
 } from "@mui/material";
 import RunPanel from "./RunPanel";
+import { useUrlParam, useUrlParamMap } from "../../hooks/useUrlState";
 
 function RunMetricPanel({ title, run_ids, metric }) {
 
-    const [sync, setSync] = useState(false);
+    const [syncRaw, setSyncRaw] = useUrlParam(`${metric}_sync`);
+    const sync = syncRaw === "1";
+    const setSync = (enabled) => setSyncRaw(enabled ? "1" : null);
 
-    // Not seeded from run_ids: a lazy initialiser runs once, so a run selected
-    // later would never get a key. An absent key reads the same as null here.
-    const [datasets, setDatasets] = useState({});
+    const [datasets, setDatasets] = useUrlParamMap(`${metric}_ds`);
+
+    // `datasets` is keyed by run id, but nothing else ties its lifetime to
+    // `run_ids` — deselecting a run leaves its entry (and its dataset name)
+    // in the URL forever. Prune on every change; idempotent once nothing is
+    // stale, so this settles in one extra render rather than looping.
+    useEffect(() => {
+        const stale = Object.keys(datasets).some(id => !run_ids.includes(id));
+        if (!stale) return;
+
+        setDatasets(
+            Object.fromEntries(
+                Object.entries(datasets).filter(([id]) => run_ids.includes(id))
+            )
+        );
+    }, [run_ids, datasets, setDatasets]);
 
     const handleDatasetChange = (changedRunId, dataset) => {
         if (sync) {
@@ -27,10 +43,10 @@ function RunMetricPanel({ title, run_ids, metric }) {
             setDatasets(syncedDatasets);
         } else {
             // Only update the run that changed
-            setDatasets(prev => ({
-                ...prev,
+            setDatasets({
+                ...datasets,
                 [changedRunId]: dataset
-            }));
+            });
         }
     };
 
@@ -73,7 +89,7 @@ function RunMetricPanel({ title, run_ids, metric }) {
 
                 <Grid container spacing={2}>
                     {run_ids.map(runId => (
-                        <Grid xs={12} md={6} key={runId}>
+                        <Grid size={{ xs: 12, md: 6 }} key={runId}>
                             <RunPanel
                                 runId={runId}
                                 metric={metric}

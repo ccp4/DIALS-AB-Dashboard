@@ -1,4 +1,6 @@
-import ReactECharts from "echarts-for-react";
+import Chart from "./Chart";
+import { tokens } from "../theme/tokens";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
 
 function MemoryOverlayChart({ data }) {
     const runs = Object.keys(data);
@@ -47,7 +49,7 @@ function MemoryOverlayChart({ data }) {
             symbol: "none",
             lineStyle: {
                 type: "dashed",
-                color: "red",
+                color: tokens.line.annotation,
             },
             data: [
                 { xAxis: rankLabels[allNegativeRank] }
@@ -64,9 +66,7 @@ function MemoryOverlayChart({ data }) {
             trigger: "axis",
             axisPointer: { type: "cross" },
         },
-        legend: {
-            top: 30,
-        },
+        legend: STANDARD_LEGEND,
         grid: {
             top: 90,
             left: 60,
@@ -82,20 +82,17 @@ function MemoryOverlayChart({ data }) {
             type: "value",
             name: "A - B",
         },
-        dataZoom: [
-            { type: "inside" },
-            { type: "slider" },
-        ],
+        dataZoom: STANDARD_DATA_ZOOM,
         series,
     };
 
     return (
-        <ReactECharts
+        <Chart
             option={options}
             notMerge
             lazyUpdate
             style={{
-                height: 600,
+                height: tokens.chart.height.full,
                 width: "100%",
             }}
         />

@@ -1,4 +1,7 @@
-import ReactECharts from "echarts-for-react";
+import Chart from "./Chart";
+import { tokens } from "../theme/tokens";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
+import { lineType, variantSeriesStyle } from "../theme/variant";
 
 // Convert (1/d)^2 -> d
 function invSqToD(v) {
@@ -23,7 +26,7 @@ function CC_halfOverallChart({ data }) {
     const series = [];
     const datasetUnion = new Set();
 
-    runs.forEach(run => {
+    runs.forEach((run, runIndex) => {
 
         const runData = memory[run] ?? {};
 
@@ -95,6 +98,7 @@ function CC_halfOverallChart({ data }) {
             yAxisIndex: 0,
             showSymbol: true,
             data: valuesA,
+            ...variantSeriesStyle("A", runIndex),
         });
 
         series.push({
@@ -103,6 +107,7 @@ function CC_halfOverallChart({ data }) {
             yAxisIndex: 0,
             showSymbol: true,
             data: valuesB,
+            ...variantSeriesStyle("B", runIndex),
         });
 
         series.push({
@@ -111,8 +116,10 @@ function CC_halfOverallChart({ data }) {
             yAxisIndex: 1,
             showSymbol: true,
             data: valuesDiff,
+            itemStyle: { color: tokens.series[0] },
             lineStyle: {
-                type: "dashed",
+                color: tokens.series[0],
+                type: lineType(runIndex),
                 width: 2,
             },
             symbol: "diamond",
@@ -134,9 +141,7 @@ function CC_halfOverallChart({ data }) {
             },
         },
 
-        legend: {
-            top: 30,
-        },
+        legend: STANDARD_LEGEND,
 
         xAxis: {
             type: "category",
@@ -173,25 +178,18 @@ function CC_halfOverallChart({ data }) {
             }
         ],
 
-        dataZoom: [
-            {
-                type: "inside",
-            },
-            {
-                type: "slider",
-            },
-        ],
+        dataZoom: STANDARD_DATA_ZOOM,
 
         series,
     };
 
     return (
-        <ReactECharts
+        <Chart
             option={options}
             notMerge
             lazyUpdate
             style={{
-                height: 700,
+                height: tokens.chart.height.tall,
                 width: "70vw",
             }}
         />

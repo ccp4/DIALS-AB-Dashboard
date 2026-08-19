@@ -3,6 +3,7 @@ import {
   TextField,
 } from "@mui/material";
 
+import LoadingState from "../LoadingState";
 import { useListDatasets } from "./useListDatasets";
 
 function DatasetSelector({ runId, value, onChange }) {
@@ -12,7 +13,7 @@ function DatasetSelector({ runId, value, onChange }) {
     loading,
   } = useListDatasets(runId);
 
-  if (loading) return <p>Loading datasets...</p>;
+  if (loading) return <LoadingState label="Loading datasets..." />;
 
   return (
     <Autocomplete

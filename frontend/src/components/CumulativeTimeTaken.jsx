@@ -1,12 +1,15 @@
-import ReactECharts from "echarts-for-react";
 import EChartsStat from "echarts-stat";
 
+import Chart from "./Chart";
+import LoadingState from "./LoadingState";
+import { tokens } from "../theme/tokens";
+import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
 import { useApi } from "../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {
   const { data, loading } = useApi(`/runs/${run}/cumulative`);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingState label="Loading timings..." />;
   if (!data?.A || !data?.B) return <p>No timing data</p>;
   const bLookup = Object.fromEntries(data.B);
   const points = data.A
@@ -56,17 +59,21 @@ function CumulativeTimeTaken({ run }) {
       symbol: "none",
       silent: true,
       animation: false,
-      lineStyle: { color: "#999", width: 1, type: "dashed" },
+      lineStyle: { color: tokens.line.reference, width: 1, type: "dashed" },
       z: 0,
     },
     {
       name: run,
       type: "scatter",
       symbolSize: 6,
-      itemStyle: { opacity: 0.55 },
+      itemStyle: { color: tokens.ink.base, opacity: 0.55 },
       emphasis: {
         scale: true,
-        itemStyle: { opacity: 1, borderColor: "#000", borderWidth: 1 },
+        itemStyle: {
+          opacity: 1,
+          borderColor: tokens.ink.strong,
+          borderWidth: 1,
+        },
       },
       data: points,
       z: 2,
@@ -81,7 +88,7 @@ function CumulativeTimeTaken({ run }) {
       symbol: "none",
       silent: true,
       animation: false,
-      lineStyle: { color: "#d62728", width: 2 },
+      lineStyle: { color: tokens.line.annotation, width: 2 },
       z: 1,
     });
   }
@@ -106,11 +113,11 @@ function CumulativeTimeTaken({ run }) {
                   r: 5,
                 },
                 style: {
-                  fill: "rgba(255,255,255,0.85)",
-                  stroke: "#ccc",
+                  fill: tokens.surface.overlay,
+                  stroke: tokens.surface.border,
                   lineWidth: 1,
                   shadowBlur: 5,
-                  shadowColor: "rgba(0,0,0,0.1)",
+                  shadowColor: tokens.surface.border,
                 },
               },
               {
@@ -119,8 +126,8 @@ function CumulativeTimeTaken({ run }) {
                 top: 10,
                 style: {
                   text: regressionSummary,
-                  font: "14px sans-serif",
-                  fill: "#333",
+                  font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
+                  fill: tokens.ink.base,
                   lineHeight: 20,
                 },
               },
@@ -148,6 +155,7 @@ function CumulativeTimeTaken({ run }) {
     xAxis: {
       type: "value",
       name: "A Runtime (s)",
+      nameTextStyle: { color: tokens.variant.A, fontWeight: 600 },
       min: 0,
       max: maxValue,
       scale: true,
@@ -156,6 +164,7 @@ function CumulativeTimeTaken({ run }) {
     yAxis: {
       type: "value",
       name: "B Runtime (s)",
+      nameTextStyle: { color: tokens.variant.B, fontWeight: 600 },
       min: 0,
       max: maxValue,
       scale: true,
@@ -165,15 +174,12 @@ function CumulativeTimeTaken({ run }) {
       containLabel: true,
     },
 
-    dataZoom: [
-      { type: "inside" },
-      { type: "slider" },
-    ],
+    dataZoom: STANDARD_DATA_ZOOM,
 
     series,
   };
 
-  return <ReactECharts option={option} style={{ height: 600 }} />;
+  return <Chart option={option} style={{ height: tokens.chart.height.full }} />;
 }
 
 export default CumulativeTimeTaken;

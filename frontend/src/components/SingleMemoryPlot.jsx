@@ -1,4 +1,5 @@
-import ReactECharts from "echarts-for-react";
+import Chart from "./Chart";
+import { tokens } from "../theme/tokens";
 
 function SingleMemoryPlot({ run, data }) {
 
@@ -45,12 +46,12 @@ function SingleMemoryPlot({ run, data }) {
     };
 
     return (
-        <ReactECharts
+        <Chart
             option={option}
             notMerge
             lazyUpdate
             style={{
-                height: 220,
+                height: tokens.chart.height.sparkline,
                 width: "100%",
             }}
         />

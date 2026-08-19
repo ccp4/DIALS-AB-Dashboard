@@ -1,4 +1,7 @@
-import ReactECharts from "echarts-for-react";
+import Chart from "./Chart";
+import { tokens } from "../theme/tokens";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
+import { variantSeriesStyle } from "../theme/variant";
 
 /**
  * Peak memory for every dataset, ranked high to low, with all selected runs on
@@ -7,6 +10,9 @@ import ReactECharts from "echarts-for-react";
  * A and B are ranked independently, so rank i is generally a different dataset
  * in each series — the dataset name is therefore carried on the point and shown
  * in the tooltip rather than on the axis.
+ *
+ * Colour carries the variant and line style carries the run, since colour
+ * cannot carry both.
  *
  * @param {Object<string, Array<{label: string, A: number, B: number}>>} data
  *        Peak memory in MiB, keyed by run id.
@@ -22,7 +28,7 @@ function MemoryRankChart({ data }) {
 
     let globalMaxRank = 0;
 
-    runs.forEach(run => {
+    runs.forEach((run, runIndex) => {
 
         const runData = memory[run] ?? [];
 
@@ -42,12 +48,14 @@ function MemoryRankChart({ data }) {
                 type: "line",
                 showSymbol: false,
                 data: rankedA,
+                ...variantSeriesStyle("A", runIndex),
             },
             {
                 name: `${run} B`,
                 type: "line",
                 showSymbol: false,
                 data: rankedB,
+                ...variantSeriesStyle("B", runIndex),
             }
         );
     });
@@ -82,9 +90,7 @@ function MemoryRankChart({ data }) {
             },
         },
 
-        legend: {
-            top: 30,
-        },
+        legend: STANDARD_LEGEND,
 
         xAxis: {
             type: "category",
@@ -101,21 +107,18 @@ function MemoryRankChart({ data }) {
             nameGap: 60,
         },
 
-        dataZoom: [
-            { type: "inside" },
-            { type: "slider" },
-        ],
+        dataZoom: STANDARD_DATA_ZOOM,
 
         series
     };
 
     return (
-        <ReactECharts
+        <Chart
             option={options}
             notMerge
             lazyUpdate
             style={{
-                height: 450,
+                height: tokens.chart.height.panel,
                 width: "100%",
             }}
         />

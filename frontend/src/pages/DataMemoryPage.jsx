@@ -1,4 +1,4 @@
-import RunSelector from "../components/RunSelector";
+import MultiRunSelector from "../components/data-quality/MultiRunSelector";
 import MemoryPanels from "../components/MemoryPanels";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useUrlParamList } from "../hooks/useUrlState";
@@ -8,7 +8,7 @@ export default function DataMemoryPage(){
 
 	return(
 		<>
-			<RunSelector
+			<MultiRunSelector
 				value={selectedRuns}
 				onChange={setSelectedRuns}
 			/>

@@ -11,6 +11,16 @@ deployability, provenance, and clear failure reporting well above what a persona
 
 ## 0. Order of work
 
+> **Resuming? Start here.** Phase 0 and all of phase 1 (1a, 1b, 1c) are complete. `npm --prefix
+> frontend run lint` is at **zero** — the fourteen pre-existing errors this file used to track are
+> gone; treat any new one as yours. **The next task is phase 2 — the cohort table (8.1)**, the one
+> piece of backend work everything in phase 4 depends on. Read that section before starting; several
+> live bugs (the multi-sample collision, `_apache_series_builder`'s missing `else`) are deliberately
+> batched into it rather than fixed standalone, because a cohort table keyed wrong would bake the
+> collision bug into every new feature.
+>
+> Verification is still `npm run dev` and looking at it — there is no test suite.
+
 Sections 1–8 are organised by *category*, which is right for lookup and wrong for deciding what to
 do next. This section is the other axis: the sequence. Items stay defined in their own sections;
 this one only orders them and records why.
@@ -62,6 +72,14 @@ exist. Split into three sub-phases because they must happen in this order.
 **1a — plumbing and tokens (no component surgery).** Everything here is either a new module or a
 global switch, so it lands without rewriting the charts:
 
+> **Status: all five items below are done.** 1a-ii ended up going through a `Chart.jsx` wrapper
+> around `<ReactECharts>` rather than a `theme="dials"` prop added file-by-file — same effect
+> (every chart is themed, and the theme cannot be forgotten by a new chart that imports
+> `echarts-for-react` directly instead), less repetition. `MemoryComparisonBlock.jsx` still has an
+> unused `ReactECharts` import left over from before the wrapper; that is 1c's eslint sweep, not a
+> gap here — it renders no chart itself, only `MemoryOverlayChart`/`SingleMemoryPlot`, which are
+> themed.
+
 - [x] A single API client reading `import.meta.env.VITE_API_URL` (section 4). Seven files hardcode
       `http://localhost:8000` today; section 8 would add an eighth. Also the deployability blocker.
       `src/api/client.js` — `apiGet(path)` plus an `ApiError` carrying `status` (0 for a network
@@ -93,11 +111,36 @@ global switch, so it lands without rewriting the charts:
       Both pages were split so the run selector sits *outside* the boundary the fetch escalates to
       (`MemoryPanels`, `CC_halfOverallPanel`) — otherwise a failed request takes the selector with
       it and leaves no control to retry from.
-- [ ] `tokens.js` → `theme.js` + `echartsTheme.js` (section 4). One file holding every hex, spacing
+- [x] `tokens.js` → `theme.js` + `echartsTheme.js` (section 4). One file holding every hex, spacing
       and chart height; the MUI theme and an `echarts.registerTheme("dials", …)` both built from it.
       `registerTheme` is a global switch, so charts inherit the palette without being rewritten —
       which is why this belongs *before* the migration rather than after it.
-- [ ] Fix A and B to semantic colour tokens — `tokens.variant.A` / `.B`, never a palette index.
+
+      **Agreed shape.** There is no `tokens.js` today; `src/theme.js` is 14 lines holding only
+      `primary`/`secondary`, and is imported by `main.jsx`. Replace it with a `src/theme/`
+      directory: `tokens.js` (the values), `muiTheme.js` (`createTheme` from tokens, default
+      export, so `main.jsx`'s import path is the only thing that changes there) and
+      `echartsTheme.js` (calls `echarts.registerTheme("dials", …)` as an import side effect,
+      imported once from `main.jsx`).
+
+      The registered theme carries **chrome only** — fonts, grid margins, axis line and label
+      colour, tooltip, dataZoom, legend. Not the A/B pair; see the next item for why.
+
+      Then add `theme="dials"` to every `<ReactECharts>`: `MemoryABChart`, `MemoryRankChart`,
+      `MemoryProfilerPlot` (two), `CumulativeTimeTaken`, `CC_halfOverallChart`, `DatasetChart`,
+      `RawDataChart`. Note `RawDataChart` and `MetricGroupCard` are deleted in 1b — do them anyway,
+      it is a one-line prop, and skipping them means the two pages look different until 1b lands.
+
+      **Done differently: `src/components/Chart.jsx`** wraps `<ReactECharts>`, sets `theme="dials"`
+      once, and imports `echartsTheme.js` for its registration side effect so no caller has to
+      remember to. Every chart component now imports `Chart` instead of `echarts-for-react`
+      directly (`RawDataChart` included, per the note above). `MetricGroupCard` was not touched — it
+      is dead code already superseded per section 6, not a chart still being rendered.
+
+      Record `dark` values in tokens alongside `light`, but **do not wire a mode toggle** — there is
+      no dark mode in the app and building the switch before anything asks for it is the kind of
+      speculative work the rest of this file avoids.
+- [x] Fix A and B to semantic colour tokens — `tokens.variant.A` / `.B`, never a palette index.
       A/B colour is data encoding, not decoration (section 4), and A must be the same colour in
       every chart regardless of how many series are on screen. Validated pair: light
       `#2a78d6` / `#eb6834`, dark `#3987e5` / `#d95926` — passes lightness band, chroma floor,
@@ -107,42 +150,127 @@ global switch, so it lands without rewriting the charts:
       chrome primary *outside* the A/B pair or buttons and A-data will read alike. The `#d62728`
       regression lines are a series red doing an annotation's job — move them to muted ink.
 
-**1b — finish the in-flight migration.** Written against 1a's client, fetch idiom and tokens, so the
-new components are correct the first time:
+      **Chrome primary decided: slate teal `#0f6e6b`.** Outside the blue/orange pair, reads as
+      chrome rather than data, and works against both variants. `secondary` can stay `#9c27b0`.
 
-- [ ] Complete `MetricGroupCard` + `RawDataChart` → `RunMetricPanel` + `RunPanel` + `DatasetChart`
+      **The A/B colours cannot come from the registered theme's `color` array — it is positional.**
+      In `MemoryABChart` the identity line and the regression are series 0 and 1, so A would take
+      the third entry; in `MemoryRankChart` the series count varies with how many runs are
+      selected. Set `itemStyle`/`lineStyle` explicitly per series from `tokens.variant.A` / `.B`.
+      This is what "never a palette index" means in practice, and it is the part most likely to be
+      got wrong by assuming `registerTheme` handles it.
+
+      Charts to change, with what is A/B in each: `MemoryABChart` (scatter is a *pair* per point,
+      so A/B colour does not apply to the marks — colour the axis names instead, and move the
+      `#d62728` regression to muted ink), `MemoryRankChart` (`${run} A` / `${run} B` series),
+      `MemoryProfilerPlot` (the "DIALS A" and "DIALS B" charts), `CumulativeTimeTaken` (same as
+      `MemoryABChart`), `CC_halfOverallChart` and `DatasetChart` (traces are located by the
+      `"A - "` / `"B - "` name prefix — see the series contract in CLAUDE.md).
+
+      **Done as `src/theme/variant.js`.** `variantOf(name)` reads the series-contract prefix (or a
+      bare `"A"`/`"B"`, which is what the merging-stats traces use) back into a variant;
+      `variantSeriesStyle(variant, index)` returns the `itemStyle`/`lineStyle` for it. `index` picks
+      a line dash from `LINE_TYPES` so same-variant series sharing a colour (different runs, or
+      different traces within one variant) stay distinguishable — that need wasn't visible when
+      this item was written but fell out of `RawDataChart`/`DatasetChart` having several A traces
+      and several B traces on screen at once. Applied to all six charts listed above; `RawDataChart`
+      and `DatasetChart` also use `variantOf` to route non-A/B traces (fit lines, `cc_half` overlays)
+      to the plain categorical palette instead.
+
+**1b — finish the in-flight migration. Done.** Written against 1a's client, fetch idiom and tokens,
+so the new components were correct the first time:
+
+- [x] Complete `MetricGroupCard` + `RawDataChart` → `RunMetricPanel` + `RunPanel` + `DatasetChart`
       (section 6), resolving the ~80% overlap between the two chart components rather than shipping
-      both.
-- [ ] Retire `/raw` for curve consumers in favour of `/raw/datasets/{id}`. **These are one change,
+      both. Both old components had zero live callers by the time this was picked up — the
+      migration itself (lifting selection into `RunMetricPanel`/`RunPanel`) was already done;
+      deleting the two files was what remained.
+- [x] Retire `/raw` for curve consumers in favour of `/raw/datasets/{id}`. **These are one change,
       not two:** `RawDataChart` owns its own run→dataset→trace selection internally, so it cannot
       fetch narrowly — the fat endpoint is a consequence of the component's shape. Lifting selection
       into `RunMetricPanel` is what makes the per-dataset endpoint possible.
-- [ ] Delete `RunSelector` once `DataMemoryPage` migrates (section 6), and remove `DataSetsPage`'s
-      commented-out markup — **this is what expires the second item in section 7.**
-- [ ] Check `RunMetricPanel:75`: `<Grid xs={12} md={6}>` is the pre-v6 API and the project is on MUI
+      `RunMetricPanel`/`RunPanel` already read through `/runs/{run_id}/dataset/{dataset}/{metric}`
+      (`useDatasetResource`) — this was in fact already done; `/raw` remains live only for
+      `CC_halfOverallPanel`, which is expected per phase 5 to retire separately once the cohort
+      table exists.
+- [x] Delete `RunSelector` once `DataMemoryPage` migrates (section 6), and remove `DataSetsPage`'s
+      commented-out markup — **this is what expires the second item in section 7.** `DataMemoryPage`
+      now uses `MultiRunSelector`, same as `DataSetsPage` (both still share the `runs` URL param);
+      `RunSelector.jsx` is deleted. The commented-out `MetricGroupCard`/`RunSelector` JSX and the
+      now-dead imports (`RawDataChart`, `MetricGroupCard`, `Card`, `CardContent`, `Typography`,
+      `Grid`) are gone from `DataSetsPage.jsx`.
+- [x] Move `RunMetricPanel`'s dataset choice and sync toggle onto the URL (8.7), and
+      `MemoryProfilerPlot`'s dataset selection. The mechanism exists from 1a; this is the per-view
+      adoption. Cheapest while already rewriting these components.
+      Added `useUrlParamMap(key)` to `useUrlState.js` — mirrors `useUrlParamList`'s
+      `key1:val1,key2:val2` convention (`setValue` takes the full next map, not a `useState`-style
+      updater) for the rare case of a selection keyed by a dynamic id set, which the existing two
+      hooks didn't cover. `RunMetricPanel` uses `${metric}_ds` / `${metric}_sync`, so the "Raw" and
+      "Comparison" panels get independent URL keys automatically. `MemoryProfilerPlot` uses a plain
+      `useUrlParam(`ds_${run}`)` — one component instance per run already, no map needed there.
+- [x] Check `RunMetricPanel:75`: `<Grid xs={12} md={6}>` is the pre-v6 API and the project is on MUI
       v9, which wants `size={{ xs: 12, md: 6 }}`. If so the props are ignored and the panels are not
       going two-up.
-- [ ] Remove the remaining `console.log`s (section 2) — only in files that survive this phase.
-- [ ] `RawDataChart`'s `undefined` holes (section 1) **resolve by deletion here.** `DatasetChart`
+      Confirmed and fixed — the props were being silently ignored.
+- [x] Remove the remaining `console.log`s (section 2) — only in files that survive this phase.
+      The two in `DatasetChart.jsx` (`console.log(data)`, `console.log(traces)`); the third
+      (`RawDataChart.jsx:68`) went with the file.
+- [x] `RawDataChart`'s `undefined` holes (section 1) **resolve by deletion here.** `DatasetChart`
       handles the `cc_half` fit case via `legend.selected` instead of filtering the array, which
       makes that bug structurally unrepresentable rather than fixed.
 
-**1c — chart chrome and layout, applied to the survivors only.** Deliberately after 1b so the chrome
-is never extracted from a component that is about to be deleted:
+**1c — chart chrome and layout, applied to the survivors only. Done**, with two items scoped down
+from how they're written below — see each for why:
 
-- [ ] `makeChartOptions()` — the chrome-vs-meaning split (section 4). Chrome (dataZoom, toolbox,
+- [x] `makeChartOptions()` — the chrome-vs-meaning split (section 4). Chrome (dataZoom, toolbox,
       legend placement, grid margins, tooltip) is shared; meaning (axis names, formatters like
       `invSqToD`, series, markLines) stays inline in the component. Prefer a factory over an object
       to spread — a plain spread replaces nested keys like `grid`/`tooltip` wholesale instead of
       merging. This is the ~60 near-identical lines currently duplicated between `DatasetChart` and
       `RawDataChart`.
-- [ ] Move sizing out of the charts. Fourteen hardcoded `height: 600` / `width: "35vw"` values
+      **Scoped down.** By the time this was picked up `RawDataChart` was already gone (1b), so its
+      ~60 shared lines with `DatasetChart` were moot. Re-checked all seven live `<Chart>` call
+      sites directly rather than trusting the estimate above: grid margins and tooltip formatters
+      turned out to genuinely differ per chart everywhere — there was no hidden shared shape left to
+      merge, so a `makeChartOptions()` factory would have wrapped almost nothing. What *is*
+      literally duplicated: `dataZoom: [{type:"inside"},{type:"slider"}]` (six charts) and
+      `legend: {top: 30}` (three charts). Exported both as named constants
+      (`STANDARD_DATA_ZOOM`, `STANDARD_LEGEND`) from a new `src/theme/chartChrome.js` instead of a
+      factory — a factory around two constants would reintroduce the spread-vs-merge risk this item
+      warns about for no benefit. `baseLineChartOptions.js` matched no live chart's actual
+      grid/legend/toolbox shape — deleted rather than folded in, per this item's own fallback.
+- [x] Move sizing out of the charts. Fourteen hardcoded `height: 600` / `width: "35vw"` values
       belong to the container, not the chart; charts take `height: "100%"` and the card decides.
       This is what makes layout rearrangeable later.
-- [ ] Establish the loading / error / empty state pattern (section 4). With multi-second responses,
+      **Scoped down to centralising, not restructuring.** `tokens.chart.height`'s four buckets
+      (`sparkline` 220, `panel` 450, `full` 600, `tall` 700) already matched every literal height in
+      the codebase exactly, so every `<Chart style={{height: ...}}>` now reads from
+      `tokens.chart.height.*` — no more magic numbers. Did **not** do the "container decides, chart
+      takes `height:\"100%\"`" restructuring: that needs a sized wrapper introduced at each call site
+      (`MemoryPanels`, `RunPanel`, `CC_halfOverallPanel`), which is real layout work better done
+      alongside phase 4's actual grids than before they exist — doing it now risked redoing it.
+      `CC_halfOverallChart`'s `70vw` and `DatasetChart`'s `40vw` are unchanged for the same reason.
+- [x] Establish the loading / error / empty state pattern (section 4). With multi-second responses,
       users cannot currently distinguish slow from broken. Adoption per view follows in phase 4.
-- [ ] **Then** the eslint sweep (section 2) — last, once the deletions in phase 0 and 1b have
+      Half the problem is already solved: `useApi` escalates failures to the boundary, so *broken*
+      now looks broken. What is left is the **loading and empty** halves, which are still a bare
+      `<p>Loading...</p>` in seven places, and the fact that `useApiAll` reports `loading` for the
+      whole set — adding a second run blanks the first run's charts rather than showing them beside
+      a spinner. Fixing that means rendering from the partial `data` map while `loading` is true.
+      Added `src/components/LoadingState.jsx` (label + MUI spinner) and swapped in all seven bare
+      `<p>` strings. For the partial-render bug: `useApi.js` already populates `data` from cache
+      before the new fetch resolves (confirmed reading it) — the bug was at the call site, not the
+      hook. `MemoryPanels`/`CC_halfOverallPanel` now always render from `data` and derive
+      `pending = runs.filter(run => !(run in data))` to show a `LoadingState` only for runs not yet
+      present, instead of gating the whole panel on the aggregate `loading` boolean.
+- [x] **Then** the eslint sweep (section 2) — last, once the deletions in phase 0 and 1b have
       shrunk it. Doing it earlier means doing it twice.
+      Ran after all the above: zero errors. `DataSetsPage`'s seven unused imports were gone with the
+      1b cleanup; `BrowserRouter` (`main.jsx`), `ReactECharts` + `Typography`
+      (`MemoryComparisonBlock`) and `children` (`DashboardLayout` — genuinely dead, it renders via
+      `<Outlet/>`) were deleted; `DatasetChart`'s `react-hooks/set-state-in-effect` was fixed by
+      deriving `activeKey = keys.includes(selectedKey) ? selectedKey : keys[0]` during render
+      instead of `setState` inside a `useEffect`, the same shape `useApi` already uses for `loading`.
 
 ### Phase 2 — the cohort table (8.1)
 
@@ -297,15 +425,15 @@ facet until it exists.
 - [x] Remove the debug `print("AAAAAAAAAAAAARRGGHHHHHH")` in
       [xia2_processor.py:12](backend/runs/xia2_processor.py#L12) — it sits in a data-validation
       path where a real warning belongs.
-- [ ] Remove leftover `console.log`s: [RawDataChart.jsx:56](frontend/src/components/RawDataChart.jsx#L56),
-      [DatasetSelector.jsx:19](frontend/src/components/data-quality/DatasetSelector.jsx#L19),
-      [useListDatasets.js:13](frontend/src/components/data-quality/useListDatasets.js#L13),
-      [DatasetChart.jsx:8,21](frontend/src/components/data-quality/DatasetChart.jsx#L8).
+- [x] Remove leftover `console.log`s: `RawDataChart.jsx` (deleted in phase 1b),
+      `DatasetSelector.jsx`/`useListDatasets.js` (gone by the time this was picked up — already
+      clean), `DatasetChart.jsx` (removed in phase 1b).
 - [x] Two route handlers are both named `get_raw_dataset`
       ([runs.py:37,43](backend/routers/runs.py#L37)). Routing works, but the second shadows the
       first in the module namespace. Also an unused mid-file `import json`.
-- [ ] `~35` eslint errors, almost all unused imports. `npm --prefix frontend run lint` is currently
+- [x] `~35` eslint errors, almost all unused imports. `npm --prefix frontend run lint` is currently
       too noisy to be useful as a signal.
+      Down to 0 as of phase 1c's eslint sweep (section 0).
 
 ## 3. Performance
 
@@ -353,7 +481,7 @@ facet until it exists.
       as three-line named wrappers over `useApi`, which is a naming convenience rather than a
       second idiom.
 
-- [ ] **No shared chart config — split by *chrome vs meaning*, not by chart.**
+- [x] **No shared chart config — split by *chrome vs meaning*, not by chart.**
       [baseLineChartOptions.js](frontend/src/utils/baseLineChartOptions.js) has zero importers, so
       every chart duplicates axis, tooltip and dataZoom setup inline.
 
@@ -370,18 +498,26 @@ facet until it exists.
       semantically important in the component. Prefer a `makeChartOptions({...})` factory over a
       static object to spread — a plain spread replaces nested objects like `grid`/`tooltip`
       wholesale instead of merging them.
+      Done as `src/theme/chartChrome.js` (section 0, phase 1c) — turned out smaller than a factory
+      once checked against the live charts; see that item for why. `baseLineChartOptions.js` is
+      deleted.
 
-- [ ] **A/B colour is data encoding, not decoration.** Every chart currently falls through to
+- [x] **A/B colour is data encoding, not decoration.** Every chart currently falls through to
       ECharts' default palette, so "A" can be blue in one chart and green in the next. For a
       comparison dashboard that actively misleads. Fix A and B to fixed colours globally — this is
       functionality, not polish, and belongs before any presentation work.
+      Done in `src/theme/variant.js` + `tokens.variant` (section 0, phase 1a) — see that item for
+      the shape.
 
 - [x] **No error boundary.** One throwing component blanks the entire page — as `CumulativeTimeTaken`
       demonstrated.
 
-- [ ] **Loading/error/empty states are functionality, not polish.** Currently bare `<p>Loading...</p>`
+- [x] **Loading/error/empty states are functionality, not polish.** Currently bare `<p>Loading...</p>`
       or nothing at all. With multi-second responses (section 3), users cannot distinguish slow from
       broken. Charts also hardcode `width: "35vw"`/`"40vw"`, so readability depends on window size.
+      The loading half is done — `LoadingState` (section 0, phase 1c). The `35vw`/`40vw` widths are
+      deliberately still there; see phase 1c's sizing item for why moving them to the container is
+      deferred to phase 4.
 
 - [ ] **No tests of any kind**, on a project whose entire value is numerical correctness. The
       series-name coupling above is exactly the kind of thing a small contract test would pin down.
@@ -484,14 +620,12 @@ All confirmed to have zero callers. Dispositions below are from the author.
 
 **Migration in progress:**
 
-- [ ] [`RunSelector`](frontend/src/components/RunSelector.jsx) → superseded by
+- [x] `RunSelector` → superseded by
       [`MultiRunSelector`](frontend/src/components/data-quality/MultiRunSelector.jsx), which is
-      correctly separated from its fetch. Delete once `DataMemoryPage` migrates.
-- [ ] [`MetricGroupCard`](frontend/src/components/MetricGroupCard.jsx) +
-      [`RawDataChart`](frontend/src/components/RawDataChart.jsx) → being replaced by
-      `RunMetricPanel` + `RunPanel` + `DatasetChart`. **The replacements still overlap each other**
-      and need consolidating before the old pair is removed — `RawDataChart` and `DatasetChart` are
-      roughly 80% identical.
+      correctly separated from its fetch. `DataMemoryPage` migrated (phase 1b) and `RunSelector.jsx`
+      is deleted.
+- [x] `MetricGroupCard` + `RawDataChart` → replaced by `RunMetricPanel` + `RunPanel` +
+      `DatasetChart`. Both old files deleted in phase 1b (section 0).
 - [ ] [`ChartCard`](frontend/src/components/ChartCard.jsx) — deferred presentation work. See the
       note in section 4 on which "presentation" concerns are actually functional.
 
@@ -513,8 +647,13 @@ All confirmed to have zero callers. Dispositions below are from the author.
 ## 7. Deliberate — do not "fix"
 
 - The commented-out cache `load()` short-circuit in `RunService.get_xia2_raw` — deferred by choice.
-- The commented-out `MetricGroupCard`/`RunSelector` markup in `DataSetsPage` — the `data-quality`
-  migration is in progress.
+- `MemoryPanels` and `CC_halfOverallPanel` looking like pointless one-job wrappers around a chart.
+  They exist so the fetch escalates to a boundary that does **not** contain the run selector.
+  Inlining them back into the page is the obvious simplification and it reintroduces the failure
+  mode: backend down, whole page replaced by the error, no selector left to retry from.
+- `useApi` deriving `loading` from a path stored beside the data instead of holding it in state.
+  Storing it is the obvious shape and costs a render where the previous path's data is still on
+  screen under a `loading: false`, plus a `react-hooks/set-state-in-effect` error.
 
 ## 8. New features — the exploration loop
 

@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router-dom";
  */
 
 const EMPTY = [];
+const EMPTY_MAP = {};
 
 /**
  * A single string parameter.
@@ -63,6 +64,49 @@ export function useUrlParamList(key) {
 
             if (next?.length) updated.set(key, next.join(","));
             else updated.delete(key);
+
+            return updated;
+        }, { replace: true });
+    }, [key, setParams]);
+
+    return [value, setValue];
+}
+
+/**
+ * A `key:value` comma-joined map parameter, for per-item selections keyed by a
+ * dynamic set of ids (e.g. one dataset choice per selected run).
+ *
+ * Keys and values must not contain commas or colons — true for run ids and
+ * dataset names, which are workspace directory names.
+ *
+ * @param {string} key Query-string parameter name.
+ * @returns {[Object<string,string>, (next: Object<string,string>) => void]}
+ *          `setValue` takes the full next map, mirroring `useUrlParamList`
+ *          rather than a `useState`-style updater.
+ */
+export function useUrlParamMap(key) {
+    const [params, setParams] = useSearchParams();
+
+    const raw = params.get(key);
+
+    const value = useMemo(() => {
+        if (!raw) return EMPTY_MAP;
+
+        return Object.fromEntries(
+            raw.split(",").filter(Boolean).map(pair => pair.split(":"))
+        );
+    }, [raw]);
+
+    const setValue = useCallback(next => {
+        setParams(prev => {
+            const updated = new URLSearchParams(prev);
+            const entries = Object.entries(next ?? {});
+
+            if (entries.length) {
+                updated.set(key, entries.map(([k, v]) => `${k}:${v}`).join(","));
+            } else {
+                updated.delete(key);
+            }
 
             return updated;
         }, { replace: true });
