@@ -34,6 +34,40 @@ def extract_xia2_samples(workspace: Workspace, run_id: str, dataset: str) -> lis
 
     return workspace.list_dirs(workspace.resolve(data_dir))
 
+def extract_xia2_build_info(workspace: Workspace, run_id: str) -> dict:
+    """
+    The DIALS build (version + git hash) used for A and B, e.g.
+    `"DIALS 3.dev.1493-gf324578a1"` — the provenance CLAUDE.md's domain
+    conventions say is "on disk, unextracted": A tracks whatever main was at
+    run time, not a fixed baseline, so this is what makes a cross-run
+    comparison's confound visible instead of implied.
+
+    One build per variant is used for the whole run, logged identically in
+    every sample's `xia2-debug.txt` (confirmed: run 2700's 460 copies of the
+    line are identical per variant) — so this reads only as many of those
+    ~2000-line files as it takes to find one A and one B, not all 460.
+    """
+    files = workspace.list_files(workspace.resolve(run_id))
+    result = {"A": None, "B": None}
+
+    for f in files:
+        if f.name != "xia2-debug.txt":
+            continue
+
+        variant = f.parent.name
+        if variant not in result or result[variant] is not None:
+            continue
+
+        for line in workspace.read_text(f).splitlines():
+            if line.startswith("DIALS ") and "-g" in line:
+                result[variant] = line.strip()
+                break
+
+        if all(result.values()):
+            break
+
+    return result
+
 _SUMMARY_METRIC_LABELS = {
     "High resolution limit": "high_resolution_limit",
     "Low resolution limit": "low_resolution_limit",

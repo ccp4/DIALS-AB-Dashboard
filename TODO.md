@@ -11,12 +11,17 @@ deployability, provenance, and clear failure reporting well above what a persona
 
 ## 0. Order of work
 
-> **Resuming? Start here.** Phase 0, phase 1 (1a–1c) and all of phase 2 (8.1's `/cohort` endpoint
-> and 2b's multi-sample rekey) are complete. `GET /runs/{run_id}/cohort` is live, one row per
-> `(dataset, sample)`, with a metric registry and exact per-sample coverage/memory/runtime. Every
-> `dataset` parameter in the backend — routes, extractors — is now a composite `"dataset/sample"`
-> id; see CLAUDE.md's workspace-layout note before touching any of `xia2_extractor.py`'s per-dataset
-> functions. **The next task is phase 3 — provenance**, below: small and independent.
+> **Resuming? Start here.** Phase 0 through phase 3 are all complete. `GET /runs/{run_id}/cohort` is
+> live, one row per `(dataset, sample)`, with a metric registry and exact per-sample
+> coverage/memory/runtime. Every `dataset` parameter in the backend — routes, extractors — is now a
+> composite `"dataset/sample"` id; see CLAUDE.md's workspace-layout note before touching any of
+> `xia2_extractor.py`'s per-dataset functions. `/runs/{run_id}` now also carries each run's A/B
+> DIALS build, surfaced by `RunProvenance.jsx` on both pages, with a warning when selected runs'
+> A builds differ. **The next task is phase 4 — the views**, below — the largest remaining phase:
+> new net-new UI (8.2's `MetricScatter` primitive through 8.8's workbench), though everything in it
+> reads from the now-built `/cohort` and inherits phase 1's tokens/chrome rather than establishing
+> its own, per section 8's own framing. Read section 8 in full before starting; it's ordered by
+> dependency and 8.2 is deliberately the shared primitive the rest configure.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -372,14 +377,26 @@ an opaque string being passed through, which was almost everywhere:
   passing regardless (its previous fixture used the same value for both, which couldn't distinguish
   a real per-sample join from the bug it was meant to catch).
 
-### Phase 3 — provenance
+### Phase 3 — provenance. Done
 
 Small, independent, and a prerequisite in spirit for phase 4.
 
-- [ ] Extract the A and B build hashes from `xia2-debug.txt` and surface them in the run header
+- [x] Extract the A and B build hashes from `xia2-debug.txt` and surface them in the run header
       (section 5).
-- [ ] Warn when selected runs have differing A builds (section 5). 8.3 plots several runs on shared
+      `extract_xia2_build_info` (`xia2_extractor.py`) — reads only as many of the ~2000-line
+      `xia2-debug.txt` copies as it takes to find one A and one B, not all 460 (they're identical
+      per variant across a whole run; confirmed against run 2700's real files before assuming it).
+      Added to `/runs/{run_id}` as a `builds` field — no new endpoint. Verified against real data:
+      run 2700 → `A: DIALS 3.dev.1493-gf324578a1, B: DIALS 3.dev.1505-g0cc846ac7`; run 5400 → a
+      different A (`3.dev.1488-g893c8dfee`), matching this file's own worked example above.
+- [x] Warn when selected runs have differing A builds (section 5). 8.3 plots several runs on shared
       axes, which is misleading until this exists.
+      New `frontend/src/components/RunProvenance.jsx` — fetches `/runs/{run}` per selected run
+      (`useApiAll`, same idiom as everywhere else), lists each run's A/B build, and shows a warning
+      `Alert` when the selected runs' A builds aren't all the same. Wired into both `DataMemoryPage`
+      and `DataSetsPage` (both already have this confound live today via `MemoryRankChart` and
+      `CC_halfOverallChart`, not just the not-yet-built 8.3), each in its own `ErrorBoundary` so a
+      failed provenance fetch doesn't take the run selector down with it.
 
 ### Phase 4 — the views
 
@@ -640,7 +657,7 @@ facet until it exists.
       it. `/memory`/`/raw` and the charts named above are untouched and still silently filter; they
       are superseded by 8.3 per TODO section 0 phase 4, so fixing them separately would be waste.
 
-- [ ] **Provenance is already on disk, unextracted — this is nearly free.** The convention is that
+- [x] **Provenance is already on disk, unextracted — this is nearly free.** The convention is that
       **A is the current main DIALS build and B is the version under test**; the run folder name
       hints at what B is. That convention is written down nowhere in the code or docs — record it.
 
@@ -654,8 +671,11 @@ facet until it exists.
 
       One extractor following the existing `extract_xia2_unit_cell` pattern turns "the user should
       know what their B is" into the dashboard stating it outright. Surface it in the run header.
+      Done in phase 3 (section 0) — `extract_xia2_build_info`, surfaced via `/runs/{run_id}`'s new
+      `builds` field and `RunProvenance.jsx`. The convention itself is written down here and in
+      CLAUDE.md's domain conventions, per this item's own ask.
 
-- [ ] **A is not a fixed baseline across runs.** Confirmed with the author: A tracks whatever main
+- [x] **A is not a fixed baseline across runs.** Confirmed with the author: A tracks whatever main
       was at the time the run executed — it is not pinned per campaign. Run 2700's A is
       `1493-gf324578a1`; run 5400's A is `1488-g893c8dfee`.
 
@@ -666,6 +686,8 @@ facet until it exists.
 
       Minimum mitigation: warn when selected runs have differing A builds. Better: show both build
       hashes per run in the legend or run header so the confound is visible rather than implied.
+      **Both done**, in phase 3: `RunProvenance.jsx` shows every selected run's A/B build *and* warns
+      when the A builds differ, on both pages — not just a minimum mitigation.
 
 - [ ] **No "so what?" layer.** No landing view answering *which datasets regressed, by how much,
       ranked*. Users must select runs and eyeball charts. This is the difference between a plotting

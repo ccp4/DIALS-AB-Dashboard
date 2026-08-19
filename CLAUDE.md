@@ -25,9 +25,12 @@ None of this is derivable from the code, and all of it affects whether a change 
   pinned per campaign. Run 2700's A is `DIALS 3.dev.1493-gf324578a1`; run 5400's A is
   `3.dev.1488-g893c8dfee`. **Cross-run comparisons are therefore confounded** — a difference
   between runs may be baseline drift rather than an effect of B. `CC_halfOverallChart` and
-  `MemoryRankChart` both plot multiple runs on shared axes without flagging this.
-- **The exact builds are recorded on disk but not yet extracted.** `xia2-debug.txt` (also `xia2.txt`
-  and `dials.integrate.log`) contains the full DIALS version and git hash for each variant.
+  `MemoryRankChart` both plot multiple runs on shared axes; `RunProvenance.jsx` (phase 3) is the
+  mitigation — it shows each selected run's A/B build and warns when the A builds differ, but it
+  doesn't stop these two charts from still plotting the confounded data side by side.
+- **The exact builds are extracted**, per variant, by `extract_xia2_build_info`
+  (`xia2_extractor.py`, phase 3) — reads `xia2-debug.txt` (also `xia2.txt` and
+  `dials.integrate.log`, unused so far), surfaced as `/runs/{run_id}`'s `builds` field.
 - **Missing data is not all equal.** A missing `B/` directory means the comparison *cannot be made*
   and is significant. Empty lists or mismatched `x`/`y` arrays inside a data file are noise and
   should be filtered silently — `_clean_trace_data` does this and is correct as written. Do not
@@ -70,13 +73,14 @@ Read it before proposing changes. In particular:
   silently dropped incomplete A/B pairs in the old endpoints (`/cohort` reports coverage correctly;
   phase 4 is expected to move consumers onto it rather than fixing the old ones in place).
 
-**Where the work is up to:** phase 0, phase 1 (1a–1c) and phase 2 (both 8.1 and 2b) are complete.
-The frontend plumbing and theme are documented below under *Data fetching*, *URL state* and
-*Frontend*. `GET /runs/{run_id}/cohort` (below, under *Backend pipeline*) is live: one row per
-`(dataset, sample)`, a backend-owned metric registry, coverage reported rather than filtered, and
-its memory/runtime join is exact per sample. **The next thing to do is phase 3** — provenance
-(TODO section 0): extracting the A/B build hashes from `xia2-debug.txt` and warning when selected
-runs have differing A builds, both small and independent.
+**Where the work is up to:** phases 0 through 3 are complete. The frontend plumbing and theme are
+documented below under *Data fetching*, *URL state* and *Frontend*. `GET /runs/{run_id}/cohort`
+(below, under *Backend pipeline*) is live: one row per `(dataset, sample)`, a backend-owned metric
+registry, coverage reported rather than filtered, and its memory/runtime join is exact per sample.
+`/runs/{run_id}` carries each run's A/B DIALS build (`builds`), surfaced by
+`src/components/RunProvenance.jsx` on both pages. **The next thing to do is phase 4 — the views**
+(TODO section 0 and section 8): the largest remaining phase, building the actual exploration UI
+(8.2's `MetricScatter` primitive through 8.8's workbench) on top of everything above.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
