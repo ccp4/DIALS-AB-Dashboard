@@ -8,6 +8,74 @@ from bisect import bisect_left
 def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     return workspace.list_dirs(workspace.resolve(run_id))
 
+def extract_xia2_samples(workspace: Workspace, run_id: str, dataset: str) -> list:
+    # Some dataset dirs are missing the `data/` layer entirely (a handful of
+    # incomplete/aborted entries in run 2700) — no samples, not a crash.
+    data_dir = f"{run_id}/{dataset}/data"
+    if not workspace.exists(data_dir):
+        return []
+
+    return workspace.list_dirs(workspace.resolve(data_dir))
+
+_SUMMARY_METRIC_LABELS = {
+    "High resolution limit": "high_resolution_limit",
+    "Low resolution limit": "low_resolution_limit",
+    "Completeness": "completeness",
+    "Multiplicity": "multiplicity",
+    "I/sigma": "i_over_sigma",
+    "Rmerge(I+/-)": "r_merge",
+    "CC half": "cc_half",
+    "Anomalous completeness": "anomalous_completeness",
+    "Anomalous multiplicity": "anomalous_multiplicity",
+}
+
+def _parse_xia2_summary(text: str) -> dict:
+    # Matched by label, not line number: the format is completely regular in
+    # every file checked (460/460 at 22 lines each), but a label match is
+    # free insurance against a future xia2 version reordering fields.
+    parsed = {}
+
+    for line in text.splitlines():
+        stripped = line.strip()
+
+        if stripped.startswith("Cell:"):
+            parsed["cell"] = [float(v) for v in stripped[len("Cell:"):].split()]
+            continue
+
+        if stripped.startswith("Spacegroup:"):
+            parsed["spacegroup"] = stripped[len("Spacegroup:"):].strip()
+            continue
+
+        parts = re.split(r"\s{2,}", stripped)
+        key = _SUMMARY_METRIC_LABELS.get(parts[0])
+
+        if key and len(parts) == 4:
+            overall, inner, outer = (float(v) for v in parts[1:])
+            parsed[key] = {"overall": overall, "inner": inner, "outer": outer}
+
+    return parsed
+
+def extract_xia2_summary(workspace: Workspace, run_id: str) -> list[dict]:
+    """
+    One record per (dataset, sample), each carrying A's and B's parsed
+    `xia2-summary.dat` (or None where that variant is missing) — the
+    per-sample granularity the cohort table is built from.
+    """
+    records = []
+
+    for dataset in extract_xia2_datasets(workspace, run_id):
+        for sample in extract_xia2_samples(workspace, run_id, dataset):
+            record = {"dataset": dataset, "sample": sample, "A": None, "B": None}
+
+            for variant in ("A", "B"):
+                path = f"{run_id}/{dataset}/data/{sample}/{variant}/xia2-summary.dat"
+                if workspace.exists(path):
+                    record[variant] = _parse_xia2_summary(workspace.read_text(path))
+
+            records.append(record)
+
+    return records
+
 def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str):
     data_src = workspace.resolve(run_id + "/" + dataset)
     files = workspace.list_files(data_src)

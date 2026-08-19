@@ -65,17 +65,20 @@ Read it before proposing changes. In particular:
   new feature ideas should be checked against it before being started.
 - Several items are load-bearing for correctness. Phase 0 is done — the blocking event loop, the
   mislabelled `MemoryABChart` axis and the gradient-only "B is faster by N%" headline are fixed.
-  What remains in that category: silent HTTP 200 on unknown runs, multi-sample datasets overwriting
-  each other, and silently dropped incomplete A/B pairs. Prefer fixing those over adding features.
+  Silent HTTP 200 on unknown runs is fixed (phase 2). What remains: multi-sample datasets
+  overwriting each other in `/raw`/`/memory`/`/comparison` (TODO section 0 phase 2b — the `/cohort`
+  endpoint does **not** have this bug, it was fixed there from the start) and silently dropped
+  incomplete A/B pairs in the same old endpoints (`/cohort` reports coverage correctly; phase 4 is
+  expected to move consumers onto it rather than fixing the old ones in place).
 
-**Where the work is up to:** phase 0 and all of phase 1 (1a, 1b, 1c) are complete. The plumbing —
-API client, one fetch idiom, URL-state mechanism — and the theme (`src/theme/`, `Chart.jsx`) are
-documented below under *Data fetching*, *URL state* and *Frontend*. The in-flight
-`MetricGroupCard`/`RawDataChart` → `RunMetricPanel`/`RunPanel`/`DatasetChart` migration is finished
-and the old pair deleted; chart chrome, sizing and loading states are done per TODO.md section 0's
-phase 1c (two of its four items landed smaller than originally written up — see that section for
-why). `npm --prefix frontend run lint` is at zero. **The next thing to do is phase 2** — the cohort
-table (8.1), the backend work everything in phase 4 depends on.
+**Where the work is up to:** phase 0, phase 1 (1a–1c) and phase 2's core (8.1) are complete. The
+frontend plumbing and theme are documented below under *Data fetching*, *URL state* and *Frontend*.
+`GET /runs/{run_id}/cohort` (below, under *Backend pipeline*) is live: one row per
+`(dataset, sample)`, a backend-owned metric registry, coverage reported rather than filtered.
+**The next thing to do is phase 2b** — TODO section 0 has the write-up. It's the real fix for the
+multi-sample collision bug, deliberately split out of 8.1 because it turned out to be a second,
+separately-scoped, breaking-API-shape change (five routes gain a `sample` segment, `DatasetSelector`
+becomes sample-aware) rather than a side effect of building `/cohort`.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
@@ -115,8 +118,10 @@ cd backend && venv/bin/python3 -m uvicorn main:app --reload
 npm --prefix frontend run dev
 ```
 
-There is no test suite. `test.py` at the repo root is a gitignored scratch file, not a test runner —
-verification means running the dashboard and looking at it.
+There is effectively no test suite. `backend/test_cohort.py` is the one exception — a contract test
+on `/cohort`'s shape, run with `cd backend && venv/bin/python3 -m pytest`. `test.py` at the repo
+root is a gitignored scratch file, not a test runner. Everywhere else, verification means running
+the dashboard and looking at it.
 
 ## Configuration
 
@@ -183,11 +188,18 @@ Two consequences worth internalising:
   not `async def`.** They call synchronous, IO-heavy extractors, so FastAPI must be allowed to run
   them in its threadpool; making one `async` puts that work back on the event loop and stalls every
   other request (measured: `/ping` 3 ms → 1107 ms while one `/raw` was in flight). Do not add
-  `async` to a handler unless its body is genuinely awaitable throughout.
-- **Extractor** does all workspace I/O and file parsing. Every extractor walks `list_files()` and
-  filters by an exact filename set — there is no globbing or path construction to the leaf files.
+  `async` to a handler unless its body is genuinely awaitable throughout. Every route calls
+  `_ensure_run_exists(run_id)` first — a missing run 404s instead of the old silent `200 []`.
+- **Extractor** does all workspace I/O and file parsing. Most extractors walk `list_files()` and
+  filter by an exact filename set — there is no globbing or path construction to the leaf files.
+  **`extract_xia2_summary` is the one exception**: it constructs the
+  `<run_id>/<dataset>/data/<sample>/{A,B}/xia2-summary.dat` path directly per sample instead of
+  walking and filtering, because it needs to know *which* sample a file belongs to as it reads it,
+  not just discover files named `xia2-summary.dat`. Keep this pattern for anything else that needs
+  per-sample identity; don't retrofit it onto the filename-filter extractors without reading 2b below.
 - **Processor** reshapes into ECharts-ready series and does the numeric work (`numpy` interpolation
-  for CC½ at a given resolution).
+  for CC½ at a given resolution). `build_cohort` (below) is the one processor function that isn't
+  reshaping for a chart — it's a join.
 - **Storage** (`FileSystemRunRepository`) is a JSON cache keyed `<run_id>/<resource>`. `save()` is
   called but the corresponding `load()` short-circuit in `get_xia2_raw` is commented out, so
   requests currently re-extract from disk every time. This is why the timing middleware in
@@ -205,6 +217,48 @@ substring match on that name:
 
 **Renaming in the builder breaks those charts silently** — no error, just an empty plot. Grep the
 frontend for the trace name before changing it.
+
+### The cohort table
+
+`GET /runs/{run_id}/cohort` — the backbone every phase-4 view is meant to read, per TODO 8.1. One
+row per `(dataset, sample)`:
+
+```
+{
+  "rows": [
+    {
+      "dataset": "7ris", "sample": "GLVaseHo_21148c5b_1_2_9.001",
+      "status": "complete",             // "complete" | "missing_a" | "missing_b"
+      "A": { "high_resolution_limit": {"overall": ..., "inner": ..., "outer": ...}, ...,
+             "cell": [...], "spacegroup": "...", "peak_memory": ..., "cumulative_runtime": ... },
+      "B": { ... } | null
+    }, ...
+  ],
+  "coverage": { "total": 231, "complete": 228, "missing_a": 1, "missing_b": 2 },
+  "metrics": [ { "key": "cc_half", "label": "CC½", "unit": "", "formatter": "ratio",
+                 "better": "higher" }, ... ]
+}
+```
+
+**`status`/`coverage` are the coverage-not-filtering rule from the domain conventions made
+concrete.** A missing side is a row with `null` for that variant and a `status`, not an absent row —
+follow this shape for any new aggregate endpoint rather than dropping incomplete pairs.
+
+**The metric registry (`backend/runs/metrics.py`) is the one place `better` (`"higher"`/`"lower"`/
+`None`) is decided**, per the domain conventions' "no single sign convention" rule. It's served in
+every `/cohort` response rather than duplicated frontend-side. `None` is a real, intentional value —
+`low_resolution_limit` reflects data-collection geometry, not something either DIALS build makes
+better or worse; don't fill in a guess to make every metric have a direction.
+
+**Peak memory and cumulative runtime are joined in from the existing dataset-keyed extractors**,
+which pre-date the sample-level rekey — a multi-sample dataset's rows currently share one memory/
+runtime value (`build_cohort`'s docstring notes this). TODO section 0 phase 2b fixes the source of
+that at the root; until then, treat those two fields as dataset-precision, not sample-precision, for
+the 5 datasets with more than one sample.
+
+**`routers/models.py` (`CohortResponse` etc.) is the first Pydantic response model in the repo.**
+The older routes (`/raw`, `/memory`, ...) stay untyped dicts on purpose — see TODO section 0 phase 2
+for why they aren't retrofitted alongside this one.
 
 ## Frontend
 

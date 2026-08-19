@@ -11,15 +11,15 @@ deployability, provenance, and clear failure reporting well above what a persona
 
 ## 0. Order of work
 
-> **Resuming? Start here.** Phase 0 and all of phase 1 (1a, 1b, 1c) are complete. `npm --prefix
-> frontend run lint` is at **zero** — the fourteen pre-existing errors this file used to track are
-> gone; treat any new one as yours. **The next task is phase 2 — the cohort table (8.1)**, the one
-> piece of backend work everything in phase 4 depends on. Read that section before starting; several
-> live bugs (the multi-sample collision, `_apache_series_builder`'s missing `else`) are deliberately
-> batched into it rather than fixed standalone, because a cohort table keyed wrong would bake the
-> collision bug into every new feature.
+> **Resuming? Start here.** Phase 0, phase 1 (1a–1c) and phase 2's core (8.1, the `/cohort`
+> endpoint) are complete. `GET /runs/{run_id}/cohort` is live, one row per `(dataset, sample)`,
+> with a metric registry and coverage reporting rather than silent filtering. **The next task is
+> 2b**, below — a real bug (the multi-sample collision) that turned out **not** to be a hard
+> dependency of 8.1 after all, so it was scoped out and picked up on its own. Read 2b's note before
+> starting; it changes five routes' shapes, not just one file.
 >
-> Verification is still `npm run dev` and looking at it — there is no test suite.
+> `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
+> pytest` runs it. Everything else is still `npm run dev` and looking at it.
 
 Sections 1–8 are organised by *category*, which is right for lookup and wrong for deciding what to
 do next. This section is the other axis: the sequence. Items stay defined in their own sections;
@@ -272,28 +272,89 @@ from how they're written below — see each for why:
       deriving `activeKey = keys.includes(selectedKey) ? selectedKey : keys[0]` during render
       instead of `setState` inside a `useEffect`, the same shape `useApi` already uses for `loading`.
 
-### Phase 2 — the cohort table (8.1)
+### Phase 2 — the cohort table (8.1). Core done; 2b split out and still open
 
 One coherent piece of backend work. Several bugs are batched in because they live in the files you
 are already editing, not because they are urgent.
 
-- [ ] Everything in 8.1: the full `xia2-summary.dat` extractor, the metric registry, the `/cohort`
+- [x] Everything in 8.1: the full `xia2-summary.dat` extractor, the metric registry, the `/cohort`
       endpoint, coverage reporting.
-- [ ] Rekey results by `(dataset, sample)` — fixes the multi-sample collision bug (section 1). This
-      must happen here: a cohort table keyed by dataset would bake the data loss into every new
+      Done as `extract_xia2_summary`/`extract_xia2_samples` (`xia2_extractor.py`), `build_cohort`
+      (`xia2_processor.py`), `RunService.get_cohort`, `GET /runs/{run_id}/cohort`. Verified against
+      `xia2-irrmc-inflate-2700`: 231 `(dataset, sample)` rows, 228 complete, 1 `missing_a`, 2
+      `missing_b` — reported, not dropped. `7ris` correctly produces two distinct rows.
+- [ ] **Rekey results by `(dataset, sample)` — fixes the multi-sample collision bug (section 1).**
+      This must happen here: a cohort table keyed by dataset would bake the data loss into every new
       feature.
-- [ ] Reconcile the `Workspace` Protocol with `LocalWorkspace` (section 4). Moved forward from
+      **Turned out not to be a hard dependency of 8.1, so it's split out as 2b below, still open.**
+      The new cohort extractor parses `xia2-summary.dat` fresh — it never calls `_top_dir` or goes
+      through `_extract_json_files`, so it derives `(dataset, sample)` directly from the path it's
+      already walking and was never at risk of inheriting the bug. Retrofitting `_top_dir` itself
+      is real work with its own blast radius (see 2b) — batching it into "build `/cohort`" would
+      have made this phase both a new-feature and a breaking-API-change PR at once.
+- [x] Reconcile the `Workspace` Protocol with `LocalWorkspace` (section 4). Moved forward from
       "before the SSH backend" because the rekey requires reasoning carefully about what
       `list_files()` returns — which is exactly what the Protocol misdeclares. Nearly free while you
       are already there.
-- [ ] Capture `sanitise`'s output shape backend-side, then delete it (sections 5 and 6).
-- [ ] Add `run_exists` checks to all routes (section 1) — and give the new `/cohort` endpoint a
+      `list_dirs`/`list_files` now declared with the real signatures (`path: str | Path | None`,
+      returning `list[Path]` for `list_files`) instead of the fictional no-arg `list[str]` ones.
+- [x] Capture `sanitise`'s output shape backend-side, then delete it (sections 5 and 6).
+      The shape (per-item reason, `total`/`complete`/`missing_a`/`missing_b` counts) is
+      `CohortRow.status` + `CohortCoverage`. `sanitiseMemoryData.js` deleted (confirmed zero
+      importers).
+- [x] Add `run_exists` checks to all routes (section 1) — and give the new `/cohort` endpoint a
       Pydantic response model (section 4). **New endpoint only; do not retrofit the old ones yet.**
-- [ ] Add the `else` branch to `_apache_series_builder` (section 1).
-- [ ] One contract test on the cohort shape and the series names (section 4). The series-name
+      Every route in `runs.py` now 404s via a shared `_ensure_run_exists` guard (was `200 []`).
+      `routers/models.py` — `CohortResponse`/`CohortRow`/`CohortCoverage`/`MetricDefinition` — is
+      the first Pydantic response model in the codebase; the older routes stay untyped dicts.
+- [x] Add the `else` branch to `_apache_series_builder` (section 1).
+      Returns `None` on an unrecognised filename instead of raising `UnboundLocalError`; the caller
+      (`process_xia2_data`) skips a `None` result rather than crashing.
+- [x] One contract test on the cohort shape and the series names (section 4). The series-name
       coupling is the thing most likely to break silently, and phase 4 is about to depend on it.
+      `backend/test_cohort.py` — the first test file in the repo. Fixture-workspace-backed (a
+      `LocalWorkspace` over a `tmp_path`, swapped in via `monkeypatch.setattr` on
+      `routers.runs.service`, since that module builds its `RunService` singleton from the real
+      configured workspace at import time). Asserts the row/coverage shape and that the metric
+      registry's keys are exactly what's expected — not the series-name contract in CLAUDE.md
+      (`/cohort` doesn't go through `_apache_series_builder` at all), but the same *kind* of
+      silent-breakage risk, for the registry instead.
+      `pytest`/`httpx` added to `requirements.txt` — first test dependencies in the repo.
 - [ ] `DatasetSelector` likely becomes a dataset+sample selector here — `7ris` offering one entry
       when it holds two different crystals is wrong.
+      **Moved to 2b** — see below for why it's coupled to the rekey rather than separable from it.
+
+### Phase 2b — rekey the old per-dataset extractors by `(dataset, sample)`
+
+Split out of phase 2 above: real, and the direct fix for the multi-sample collision bug (section 1),
+but a second large, separately-testable, breaking-API-shape change rather than a side effect of
+building `/cohort`. Traced through before deferring it (not just asserted):
+
+- `_top_dir` (`xia2_extractor.py`) feeds `_extract_json_files`/`_extract_memory_files`, which back
+  `/raw`, `/comparison`, `/memory`. Rekeying those to a composite `"{dataset}/{sample}"` string is
+  **harmless** — `CC_halfOverallChart`, `MemoryRankChart`, `MemoryABChart`, `MemoryOverlayChart`,
+  `SingleMemoryPlot`, `CumulativeTimeTaken` all already treat the top-level key as an opaque label
+  string, so it "just works" and the labels get more precise instead of colliding. No frontend
+  change needed for this part.
+- But it **breaks** `get_xia2_dataset_raw`/`get_xia2_dataset_comparison`'s `processed.get(dataset,
+  {})` lookup outright — after the rekey the plain dataset name is never a key, so every dataset
+  (not just the 5 multi-sample ones) would start returning `{}`. Fixing that forces `sample` all the
+  way through: `extract_xia2_dataset_memplot`/`extract_xia2_timing`/`get_xia2_cell_space` need a
+  `sample` param (their own A/B-level collision, scoped to one dataset, disappears once they're
+  scoped to one sample too); five routes (`/dataset/{dataset}/raw`, `/dataset/{dataset}/comparison`,
+  `/memory/{dataset}`, `/memory/{dataset}/events`, `/info/{dataset}`) need a `sample` segment; a new
+  `GET /runs/{run_id}/dataset/{dataset}/samples` route (`extract_xia2_samples` already exists,
+  written for 8.1) is needed for the frontend to list them.
+- Frontend: `DatasetSelector` (data-quality) and `MemoryProfilerPlot`'s dataset `Autocomplete` both
+  need to become sample-aware. Cheapest good option given only 5 datasets have >1 sample: a flat
+  list of `"dataset"` (single-sample) / `"dataset / sample"` (multi-sample) composite labels rather
+  than a two-level dependent dropdown — avoids a UI redesign for a handful of datasets.
+  `RunMetricPanel`'s URL-encoded `${metric}_ds` map and `MemoryProfilerPlot`'s `ds_${run}` param
+  (TODO 0, phase 1b) just store the composite string as the value; no URL-state mechanism changes
+  needed.
+- Until this lands, `/cohort`'s peak-memory/cumulative-runtime values are duplicated across a
+  multi-sample dataset's rows (documented in `build_cohort`'s docstring) — this is what makes it
+  worth doing soon rather than indefinitely, not urgent.
 
 ### Phase 3 — provenance
 
@@ -378,20 +439,29 @@ facet until it exists.
       (`GLVaseHo_21148c5b_1_2_9.001` and `GLVase_Ca_we21108b7b_1_2_2.001`), so this is not a
       harmless duplicate-sweep case. 227 dataset directories hold 232 samples.
       *Fix: key results by `(dataset, sample)`. This rekeys every result dict — see the warning about
-      `_top_dir` in CLAUDE.md — so it is best done as part of section 8.1 rather than alone.*
+      `_top_dir` in CLAUDE.md.* **Tracked as TODO section 0 phase 2b** — not fixed by the cohort
+      table (8.1): the new `/cohort` extractor parses `xia2-summary.dat` fresh and never calls
+      `_top_dir`, so it doesn't inherit this bug, but `_top_dir` itself — and therefore `/raw`,
+      `/memory`, `/comparison` — is still affected. See phase 2b for why fixing it is a second,
+      separately-scoped, breaking-API-shape change rather than part of building `/cohort`.
 
-- [ ] **`_apache_series_builder` raises `UnboundLocalError` on unknown filenames.**
+- [x] **`_apache_series_builder` raises `UnboundLocalError` on unknown filenames.**
       [xia2_processor.py:88-97](backend/runs/xia2_processor.py#L88-L97) — no `else` branch, so
       `name` is unbound if `file` isn't one of the three hardcoded names. Any new source file
       crashes extraction instead of being skipped.
+      Fixed: returns `None` on an unrecognised filename; `process_xia2_data` skips a `None` result.
 
-- [ ] **Unknown run returns HTTP 200, not 404.** `curl /runs/DOES_NOT_EXIST/memory` → `200 []`.
+- [x] **Unknown run returns HTTP 200, not 404.** `curl /runs/DOES_NOT_EXIST/memory` → `200 []`.
       `Path.rglob` on a missing directory yields nothing, so a typo is indistinguishable from an
       empty result. Add existence checks (`RunService.run_exists` already exists and is unused).
+      Fixed: every route in `runs.py` now calls a shared `_ensure_run_exists` guard, 404 via
+      `HTTPException`.
 
-- [ ] **`RawDataChart` puts `undefined` holes in the series array.**
+- [x] **`RawDataChart` puts `undefined` holes in the series array.**
       [RawDataChart.jsx:54-66](frontend/src/components/RawDataChart.jsx#L54-L66) — the `cc_half`
       branch maps with no `else`, so non-`fit` traces become `undefined`.
+      Resolved by deletion in phase 1b — `DatasetChart` handles the same case via `legend.selected`
+      instead of filtering the array.
 
 - [x] **`useListDatasets` has a stale-closure bug.**
       [useListDatasets.js:28](frontend/src/components/data-quality/useListDatasets.js#L28) — uses
@@ -452,12 +522,13 @@ facet until it exists.
 
 ## 4. Architecture and design
 
-- [ ] **The `Workspace` Protocol is decorative and would not survive an SSH implementation.**
+- [x] **The `Workspace` Protocol is decorative and would not survive an SSH implementation.**
       [workspace/base.py](backend/workspace/base.py) declares `list_dirs(self)` and
       `list_files(self)` returning `list[str]`; [local.py](backend/workspace/local.py) implements
       `list_dirs(self, path=None)` and `list_files(self, path)` returning `list[Path]` — and
       callers depend on the `Path` behaviour (`.name`, `.parent.name`, `.parts`). Protocols aren't
       runtime-checked so nothing errors today. Reconcile this *before* writing the SSH backend.
+      Done in phase 2 (section 0) — signatures now match `LocalWorkspace`.
 
 - [ ] **No domain model.** The A/B concept is rediscovered in every extractor — sometimes from a
       filename suffix, sometimes from `f.parent.name` — each returning an ad-hoc `{"A": [], "B": []}`.
@@ -521,6 +592,9 @@ facet until it exists.
 
 - [ ] **No tests of any kind**, on a project whose entire value is numerical correctness. The
       series-name coupling above is exactly the kind of thing a small contract test would pin down.
+      Partially addressed: `backend/test_cohort.py` (phase 2, section 0) is the first test in the
+      repo, covering `/cohort`'s shape and the 404-on-unknown-run fix. Everything else — the series
+      contract itself, the numeric extractors, the frontend — is still untested.
 
 ## 5. Product gaps — what stops this being a useful dashboard
 
@@ -545,6 +619,12 @@ facet until it exists.
 
       Minimum useful version: every response reports `n` datasets compared out of `N` present, and
       the UI states it. A silently shrinking denominator is the worst outcome for a comparison tool.
+
+      **Done for the new path, not the old one.** `/cohort` (phase 2, section 0) reports exactly
+      this shape — `CohortRow.status` (`"complete"`/`"missing_a"`/`"missing_b"`) plus
+      `CohortCoverage`'s `total`/`complete`/`missing_a`/`missing_b` — and phase 4's views will read
+      it. `/memory`/`/raw` and the charts named above are untouched and still silently filter; they
+      are superseded by 8.3 per TODO section 0 phase 4, so fixing them separately would be waste.
 
 - [ ] **Provenance is already on disk, unextracted — this is nearly free.** The convention is that
       **A is the current main DIALS build and B is the version under test**; the run folder name
@@ -604,8 +684,9 @@ All confirmed to have zero callers. Dispositions below are from the author.
       fix — just don't reintroduce interpolation over descending `x` without reversing first.
 - [ ] [`MemoryOverlayChart`](frontend/src/components/MemoryOverlayChart.jsx) — exploratory but
       considered useful; keep for now.
-- [ ] `RunService.run_exists` — no current caller, but it is the natural fix for the HTTP 200
+- [x] `RunService.run_exists` — no current caller, but it is the natural fix for the HTTP 200
       -on-unknown-run bug in section 1. Keep and use it.
+      Used now, in every route's `_ensure_run_exists` guard (phase 2, section 0).
 
 **Superseded, safe to delete:**
 
@@ -613,9 +694,10 @@ All confirmed to have zero callers. Dispositions below are from the author.
       long series names; that job now happens backend-side in `_apache_series_builder`.
 - [x] `chartjs-plugin-zoom` + `react-chartjs-2` in `frontend/package.json` — leftover from a
       pre-ECharts experiment.
-- [ ] [`sanitise`](frontend/src/utils/sanitiseMemoryData.js) — the sanitisation role moved to the
-      backend extractor/processor. **Capture its output shape into the backend first** (section 5),
-      then delete.
+- [x] `sanitise` — the sanitisation role moved to the backend extractor/processor. **Capture its
+      output shape into the backend first** (section 5), then delete.
+      Shape captured as `/cohort`'s `CohortRow.status` + `CohortCoverage` (phase 2, section 0);
+      `sanitiseMemoryData.js` deleted.
 - [x] `frontend/src/data.json`, `frontend/src/sigma.json` — caching experiments, to be removed. Confirmed absent from the repo and untracked; nothing to delete.
 
 **Migration in progress:**
@@ -668,9 +750,9 @@ not a replacement: several items here make the fixes in sections 1 and 2 more va
 shared primitive that 8.3, 8.5 and 8.8 are configurations of, so the later views cost far less than
 the first. Build in order.
 
-### 8.1 The cohort table — the backbone
+### 8.1 The cohort table — the backbone. Done — see TODO section 0, phase 2
 
-- [ ] **Parse the whole of `xia2-summary.dat` into a per-sample record.** Only two fields are read
+- [x] **Parse the whole of `xia2-summary.dat` into a per-sample record.** Only two fields are read
       from it today, by [`extract_xia2_unit_cell`](backend/runs/xia2_extractor.py#L82) and
       [`extract_xia2_space_group`](backend/runs/xia2_extractor.py#L101). The file already carries,
       per variant, nine metrics each reported as *overall / inner shell / outer shell*:
@@ -695,24 +777,50 @@ the first. Build in order.
       `(dataset, sample, variant)`, ~30 numeric columns. **This one piece of work is what makes
       8.2–8.8 cheap.**
 
-- [ ] **Row granularity must be the sample, not the dataset.** Depends on the collision bug in
+      **Done as `extract_xia2_summary`/`extract_xia2_samples`.** Scoped down slightly:
+      image count/wavelength/detector distance/beam centre are the same physical data collection for
+      A and B, not an A/B comparison axis, so they're **not** in the row schema — YAGNI per this
+      file's own stated philosophy. `cell`/`spacegroup` are kept (already-parsed lines, and 8's
+      deferred facets want them later). Row granularity is `(dataset, sample)`, with A/B nested
+      inside each row rather than a flat `(dataset, sample, variant)` row per the sketch above — a
+      nested `{dataset, sample, status, A, B}` is what lets `status` exist at all (see below).
+
+- [x] **Row granularity must be the sample, not the dataset.** Depends on the collision bug in
       section 1 — a cohort table keyed by dataset would bake that silent data loss into every new
       feature.
+      Done for `/cohort` specifically: it parses `xia2-summary.dat` fresh and never goes through the
+      buggy `_top_dir`, so it was never at risk of inheriting the bug. The bug itself, in `_top_dir`
+      and therefore `/raw`/`/memory`/`/comparison`, is still open — split out as **section 0 phase
+      2b**, since fixing it turned out to be a second, separately-scoped, breaking-API-shape change
+      (traced through in 2b's write-up), not a side effect of building this table.
 
-- [ ] **Report coverage rather than filtering it.** Measured on `xia2-irrmc-inflate-2700`: 227
+- [x] **Report coverage rather than filtering it.** Measured on `xia2-irrmc-inflate-2700`: 227
       dataset directories → 232 samples, of which 231 have an A summary and 229 a B, giving ~229
       complete pairs. The gaps are the *structurally absent* case from section 5 and must be
       surfaced, not dropped.
+      **Re-measured via the actual extractor** (not manual counting): 231 samples, 230 with an A
+      summary, 229 with a B, 228 complete pairs — one dataset dir (`nsls2_fmx_20161122_lys_266`) has
+      no `data/` subdirectory at all and contributes zero samples, which accounts for the small
+      difference from the estimate above. `CohortRow.status` (`"complete"`/`"missing_a"`/
+      `"missing_b"`) plus `CohortCoverage`'s counts report exactly this, per row and in aggregate.
 
-- [ ] **A metric registry, backend-owned.** Per metric: key, label, unit, formatter, and
+- [x] **A metric registry, backend-owned.** Per metric: key, label, unit, formatter, and
       direction-of-better. CLAUDE.md records that there is no single sign convention across metrics,
       so "did this get better?" needs defining once instead of being re-derived in each chart. This
       is also the domain model section 4 says the project lacks, arriving as a by-product rather
       than as a refactor.
+      Done as `backend/runs/metrics.py` — 11 entries (the 9 xia2-summary metrics' `overall` value +
+      peak memory + cumulative runtime; inner/outer shell values ride along on each row but aren't
+      separate registry entries — nothing reads them yet). `low_resolution_limit`'s `better` is
+      `None`, deliberately: it reflects data-collection geometry, not something either DIALS build
+      makes better or worse, and guessing a direction would be worse than admitting there isn't one.
+      Serialized into every `/cohort` response (`CohortResponse.metrics`) so the frontend never
+      hardcodes metric metadata.
 
-- [ ] **One endpoint — `/runs/{run_id}/cohort`.** Every view below reads it and nothing else. Note
+- [x] **One endpoint — `/runs/{run_id}/cohort`.** Every view below reads it and nothing else. Note
       it is a second large payload alongside `/raw`, which makes section 2's GZip item and section
       1's event-loop item materially more valuable than they are today.
+      Live, with a Pydantic response model (`routers/models.py`) — the first in the codebase.
 
 ### 8.2 `MetricScatter` — the shared primitive
 

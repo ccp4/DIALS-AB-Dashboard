@@ -81,20 +81,24 @@ def process_xia2_data(raw_data: dict) -> dict:
                 for variant in trace_obj["data"]:
 
                     series = _apache_series_builder(variant, file)
-                    result[run][trace_name].append(series)
+                    if series is not None:
+                        result[run][trace_name].append(series)
 
     return result
 
-def _apache_series_builder(data: dict, file: str) -> dict:
+def _apache_series_builder(data: dict, file: str) -> dict | None:
 
-    # ERR needs fixup
     if file == "dials.estimate_resolution-A.json":
         name = "A - " + data["name"]
     elif file == "dials.estimate_resolution-B.json":
         name = "B - " + data["name"]
     elif file == "xia2.compare_merging_stats.json":
         name = data["name"]
-    
+    else:
+        # An unrecognised source file is skipped rather than crashing the
+        # whole extraction — the caller drops a `None` result.
+        return None
+
     if "sub" in name:
         name = name.replace("<sub>","")
         name = name.replace("</sub>", "")
@@ -103,3 +107,60 @@ def _apache_series_builder(data: dict, file: str) -> dict:
         "name": name,
         "data": [[x, y] for x, y in zip(data["x"], data["y"])]
     }
+
+def _cumulative_timing_lookup(cumulative_timing: dict) -> dict:
+    lookup = {}
+
+    for variant in ("A", "B"):
+        for dataset, total in cumulative_timing.get(variant, []):
+            lookup.setdefault(dataset, {})[variant] = total
+
+    return lookup
+
+def build_cohort(summary_records: list[dict], memory: dict, cumulative_timing: dict) -> tuple[list[dict], dict]:
+    """
+    Joins the per-sample `xia2-summary.dat` records with the existing
+    (dataset-keyed) peak-memory and cumulative-timing extractions.
+
+    Peak memory/runtime are dataset-keyed, not sample-keyed, so a
+    multi-sample dataset's value is duplicated across its sample rows here —
+    a known approximation until the (dataset, sample) rekey of those
+    extractors (TODO 2b) makes them sample-precise too.
+    """
+    timing_by_dataset = _cumulative_timing_lookup(cumulative_timing)
+
+    rows = []
+    counts = {"complete": 0, "missing_a": 0, "missing_b": 0}
+
+    for record in summary_records:
+        dataset = record["dataset"]
+        mem = memory.get(dataset, {})
+        timing = timing_by_dataset.get(dataset, {})
+
+        row = {"dataset": dataset, "sample": record["sample"], "A": None, "B": None}
+
+        for variant in ("A", "B"):
+            summary = record.get(variant)
+            if summary is None:
+                continue
+
+            row[variant] = {
+                **summary,
+                "peak_memory": mem.get(variant),
+                "cumulative_runtime": timing.get(variant),
+            }
+
+        if row["A"] is not None and row["B"] is not None:
+            status = "complete"
+        elif row["A"] is None:
+            status = "missing_a"
+        else:
+            status = "missing_b"
+
+        counts[status] += 1
+        row["status"] = status
+        rows.append(row)
+
+    coverage = {"total": len(rows), **counts}
+
+    return rows, coverage

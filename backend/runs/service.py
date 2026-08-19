@@ -1,6 +1,7 @@
 from storage.local import FileSystemRunRepository
-from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing
-from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, interpolate_cc_half
+from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing, extract_xia2_summary
+from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, interpolate_cc_half, build_cohort
+from runs.metrics import METRICS
 
 class RunService:
     def __init__(self, workspace):
@@ -94,5 +95,16 @@ class RunService:
 
     def run_exists(self, run_id: str):
         return self.workspace.exists(f"{run_id}/{self.xia_marker}")
-    
-        
+
+    def get_cohort(self, run_id: str):
+        summary_records = extract_xia2_summary(self.workspace, run_id)
+        memory = extract_xia2_memory(self.workspace, run_id)
+        timing = extract_xia2_cumulative_timing(self.workspace, run_id)
+
+        rows, coverage = build_cohort(summary_records, memory, timing)
+
+        return {
+            "rows": rows,
+            "coverage": coverage,
+            "metrics": METRICS,
+        }
