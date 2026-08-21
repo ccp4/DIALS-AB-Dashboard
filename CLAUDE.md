@@ -79,11 +79,11 @@ documented below under *Data fetching*, *URL state* and *Frontend*. `GET /runs/{
 registry, coverage reported rather than filtered, and its memory/runtime join is exact per sample.
 `/runs/{run_id}` carries each run's A/B DIALS build (`builds`), surfaced by
 `src/components/RunProvenance.jsx` on both pages. **Phase 4 — the views — is underway.** 8.2
-(`MetricScatter`, the shared B-vs-A parity-scatter primitive) and 8.3 (`CohortGrid`, the
-small-multiples cohort overview) are both live at the new `/explore` route
-(`src/pages/ExplorePage.jsx`). **The next thing to do is 8.5** (TODO section 0 and section 8) —
-outlier callouts on top of `MetricScatter` — followed by the rest of phase 4 (8.4's dataset detail
-page, 8.6's comparison basket, 8.8's workbench).
+(`MetricScatter`, the shared B-vs-A parity-scatter primitive), 8.3 (`CohortGrid`, the
+small-multiples cohort overview, at `/explore`), 8.5 (outlier points highlighted by colour in
+`MetricScatter`) and 8.4 (`DatasetDetailPage`, the per-sample detail view with its "what moved"
+strip, at `/explore/dataset/:run/*`) are all live. **The next thing to do is 8.6** (TODO section 0
+and section 8) — the comparison basket — followed by 8.8's workbench.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
@@ -291,8 +291,19 @@ resolve by Node walking up the tree, which works locally and fails for anyone wh
 `frontend/`.
 
 Routing in `src/App.jsx`: `/` → `DataMemoryPage` (memory + timings), `/datasets` → `DataSetsPage`
-(data quality), `/explore` → `ExplorePage` (the cohort overview, TODO 8.3). All three render inside
+(data quality), `/explore` → `ExplorePage` (the cohort overview, TODO 8.3), `/explore/dataset/:run/*`
+→ `DatasetDetailPage` (the per-sample detail view, TODO 8.4). All four render inside
 `DashboardLayout`.
+
+**`explore/dataset/:run/*` is a splat route** — the composite `dataset/sample` id (always contains a
+literal `/`, per the workspace-layout note above) is captured by the trailing `*`, not a named
+param, the frontend analogue of the backend's `{dataset:path}` fix from phase 2b.
+`DatasetDetailPage` reads it via `useParams()["*"]`. It's reachable two ways, both funnelled through
+one `goToDataset(navigate, run, dataset)` helper in `src/navigation.js`: a `DatasetSelector` on
+`ExplorePage`, and a new `onPointClick` prop on `MetricScatter` (wired through `CohortGrid`).
+`goToDataset` lives in its own module rather than being colocated in `ExplorePage.jsx` — a page file
+exporting anything besides its default component trips this repo's
+`react-refresh/only-export-components` lint rule.
 
 `src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback.
 It is used at two levels: around each route in `App.jsx`, and around each chart in the pages.

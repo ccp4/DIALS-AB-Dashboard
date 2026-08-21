@@ -17,10 +17,11 @@ const STAGE_BANDS = {
   "dials.integrate": withAlpha(tokens.series[0], 0.25),
 };
 
-function MemoryProfilerPlot({ run }) {
-  const [selectedDataset, setSelectedDataset] = useUrlParam(`ds_${run}`);
+function MemoryProfilerPlot({ run, fixedDataset }) {
+  const [urlDataset, setUrlDataset] = useUrlParam(`ds_${run}`);
+  const selectedDataset = fixedDataset ?? urlDataset;
 
-  const { data: runInfo, loading: loadingDatasets } = useApi(`/runs/${run}`);
+  const { data: runInfo, loading: loadingDatasets } = useApi(fixedDataset ? null : `/runs/${run}`);
 
   const memoryPath = selectedDataset
     ? `/runs/${run}/memory/${selectedDataset}`
@@ -135,19 +136,21 @@ const markAreas = commands.map(cmd => {
 
   return (
     <Box>
-      <Autocomplete
-        options={datasets}
-        value={selectedDataset}
-        onChange={(event, value) => setSelectedDataset(value)}
-        sx={{ width: 300, mb: 3 }}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Dataset"
-            variant="outlined"
-          />
-        )}
-      />
+      {!fixedDataset && (
+        <Autocomplete
+          options={datasets}
+          value={selectedDataset}
+          onChange={(event, value) => setUrlDataset(value)}
+          sx={{ width: 300, mb: 3 }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Dataset"
+              variant="outlined"
+            />
+          )}
+        />
+      )}
 
       {loadingMemory && <LoadingState label="Loading memory profile..." />}
 

@@ -39,3 +39,6 @@ test.py
 
 # Subagent-driven-development scratch (ledgers, briefs, review packages)
 .superpowers/
+
+# Brainstorming/planning scratch (specs, plans) — folded into TODO.md/CLAUDE.md instead of kept
+docs/

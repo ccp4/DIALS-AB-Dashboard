@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Card, CardActionArea, CardContent, Dialog, DialogContent, Grid, Typography } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 import LoadingState from "./LoadingState";
 import MetricScatter from "./MetricScatter";
+import { goToDataset } from "../navigation";
 import { tokens } from "../theme/tokens";
 import { useApi } from "../hooks/useApi";
 
@@ -15,12 +17,14 @@ import { useApi } from "../hooks/useApi";
 export default function CohortGrid({ run }) {
     const [expandedKey, setExpandedKey] = useState(null);
     const { data, loading } = useApi(run ? `/runs/${run}/cohort` : null);
+    const navigate = useNavigate();
 
     if (!run) return null;
     if (loading) return <LoadingState label="Loading cohort data..." />;
     if (!data) return null;
 
     const expandedMetric = data.metrics.find((m) => m.key === expandedKey) ?? null;
+    const onPointClick = (sampleId) => goToDataset(navigate, run, sampleId);
 
     return (
         <>
@@ -40,6 +44,7 @@ export default function CohortGrid({ run }) {
                                         rows={data.rows}
                                         metric={metric}
                                         style={{ height: tokens.chart.height.panel, width: "100%" }}
+                                        onPointClick={onPointClick}
                                     />
                                 </CardContent>
                             </CardActionArea>
@@ -56,6 +61,7 @@ export default function CohortGrid({ run }) {
                             metric={expandedMetric}
                             style={{ height: tokens.chart.height.tall, width: "100%" }}
                             enableZoom
+                            onPointClick={onPointClick}
                         />
                     )}
                 </DialogContent>

@@ -3,6 +3,7 @@ import DashboardLayout from "./components/DashboardLayout"
 import DataSetsPage from "./pages/DataSetsPage"
 import DataMemoryPage from "./pages/DataMemoryPage"
 import ExplorePage from "./pages/ExplorePage"
+import DatasetDetailPage from "./pages/DatasetDetailPage"
 import ErrorBoundary from "./components/ErrorBoundary"
 
 function App() {
@@ -31,6 +32,14 @@ function App() {
             element={
               <ErrorBoundary label="Explore">
                 <ExplorePage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="explore/dataset/:run/*"
+            element={
+              <ErrorBoundary label="Dataset detail">
+                <DatasetDetailPage />
               </ErrorBoundary>
             }
           />

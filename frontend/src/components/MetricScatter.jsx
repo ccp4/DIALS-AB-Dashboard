@@ -6,18 +6,7 @@ import Chart from "./Chart";
 import { tokens } from "../theme/tokens";
 import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
 
-const FORMATTERS = {
-    resolution: (v) => `${v.toFixed(2)} Å`,
-    percent: (v) => `${v.toFixed(1)}%`,
-    ratio: (v) => v.toFixed(3),
-    mib: (v) => `${v.toFixed(0)} MiB`,
-    seconds: (v) => `${v.toFixed(1)} s`,
-};
-
-function formatValue(value, formatter) {
-    const fn = FORMATTERS[formatter];
-    return fn ? fn(value) : `${value}`;
-}
+import { formatValue, metricValue } from "../theme/metricFormat";
 
 // Axis ticks need less precision than the raw data — an untruncated float
 // (e.g. from a padded min/max) eats horizontal space and shrinks the plot.
@@ -25,15 +14,6 @@ function formatAxisTick(value) {
     if (Math.abs(value) >= 100) return value.toFixed(0);
     if (Math.abs(value) >= 10) return value.toFixed(1);
     return value.toFixed(2);
-}
-
-// The 9 xia2-summary metrics are {overall, inner, outer}; peak_memory and
-// cumulative_runtime are flat numbers. One accessor for both shapes.
-function metricValue(variant, key) {
-    if (!variant) return null;
-    const entry = variant[key];
-    if (entry == null) return null;
-    return typeof entry === "object" ? entry.overall : entry;
 }
 
 /**
@@ -46,7 +26,7 @@ function metricValue(variant, key) {
  * @param {boolean} [enableZoom] Show the dataZoom slider — off by default so a
  *        small-multiples grid isn't squashed by it; the expanded (clicked-into) view turns it on.
  */
-function MetricScatter({ rows, metric, style, enableZoom = false }) {
+function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }) {
     const points = rows
         .map((row) => ({
             sampleId: `${row.dataset}/${row.sample}`,
@@ -119,6 +99,17 @@ function MetricScatter({ rows, metric, style, enableZoom = false }) {
         [domainMax, domainMax],
     ];
 
+    // The N points furthest from the parity line get a distinct colour
+    // instead of a label — self-identifying without hovering, and without
+    // the overlap risk a text label would have at this size (TODO 8.5).
+    const OUTLIER_COUNT = 5;
+    const outlierIds = new Set(
+        [...points]
+            .sort((a, b) => Math.abs(b.B - b.A) - Math.abs(a.B - a.A))
+            .slice(0, OUTLIER_COUNT)
+            .map((p) => p.sampleId)
+    );
+
     const series = [
         {
             name: "x = y",
@@ -154,7 +145,13 @@ function MetricScatter({ rows, metric, style, enableZoom = false }) {
                 scale: true,
                 itemStyle: { opacity: 1, borderColor: tokens.ink.strong, borderWidth: 1 },
             },
-            data: points.map((p) => ({ value: [p.A, p.B], ...p })),
+            data: points.map((p) => ({
+                value: [p.A, p.B],
+                ...p,
+                ...(outlierIds.has(p.sampleId)
+                    ? { itemStyle: { color: tokens.series[1], opacity: 1 } }
+                    : {}),
+            })),
             z: 2,
         },
     ];
@@ -265,7 +262,21 @@ function MetricScatter({ rows, metric, style, enableZoom = false }) {
         series,
     };
 
-    return <Chart option={option} notMerge lazyUpdate style={style} />;
+    return (
+        <Chart
+            option={option}
+            notMerge
+            lazyUpdate
+            style={style}
+            onEvents={{
+                click: (params) => {
+                    if (params.componentType !== "series" || params.seriesType !== "scatter") return;
+                    params.event?.event?.stopPropagation();
+                    onPointClick?.(params.data.sampleId);
+                },
+            }}
+        />
+    );
 }
 
 export default memo(MetricScatter);

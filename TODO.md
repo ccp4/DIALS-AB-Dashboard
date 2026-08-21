@@ -19,11 +19,11 @@ deployability, provenance, and clear failure reporting well above what a persona
 > DIALS build, surfaced by `RunProvenance.jsx` on both pages, with a warning when selected runs'
 > A builds differ. `/cohort`/`/memory`/`/cumulative` were also sped up ~12–24x (section 3) before
 > starting phase 4, since every phase-4 view depends on `/cohort`. **Phase 4 is underway**: 8.2
-> (`MetricScatter`, the shared parity-scatter primitive) and 8.3 (`CohortGrid`, the small-multiples
-> overview, live at `/explore`) are both done. **The next task is 8.5 — outlier callouts**, which
-> this file's own framing called "nearly free once 8.2 exists"; that is now genuinely true. Read
-> section 8 in full before starting; it's ordered by dependency and 8.2 is deliberately the shared
-> primitive the rest configure.
+> (`MetricScatter`, the shared parity-scatter primitive), 8.3 (`CohortGrid`, the small-multiples
+> overview, live at `/explore`), 8.5 (outlier points highlighted by colour in `MetricScatter`) and
+> 8.4 (the dataset detail page and "what moved" strip, at `/explore/dataset/:run/*`) are all done.
+> **The next task is 8.6 — the comparison basket.** Read section 8 in full before starting; it's
+> ordered by dependency and 8.2 is deliberately the shared primitive the rest configure.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -420,9 +420,14 @@ Section 8's order. Each inherits 1a's tokens and 1c's chrome rather than establi
       `ErrorBoundary` — the same split as `DataMemoryPage`/`DataSetsPage`, so a failed `/cohort`
       fetch doesn't take the run selector down with it). The coverage line (`n / N complete`, missing
       A/missing B counts) reads straight off `/cohort`'s `coverage` field.
-- [ ] 8.5 outlier callouts — nearly free once 8.2 exists. **Next up**, now genuinely true.
-- [ ] 8.4 dataset detail page and the "what moved" strip.
-- [ ] 8.6 comparison basket.
+- [x] 8.5 outlier callouts — nearly free once 8.2 exists, confirmed true: a per-datapoint
+      `itemStyle` override in `MetricScatter`'s existing scatter series, no new component.
+- [x] 8.4 dataset detail page and the "what moved" strip — new route
+      `/explore/dataset/:run/*` (splat for the composite id, mirroring the backend's
+      `{dataset:path}`), reached both by clicking a `MetricScatter` point and by a manual
+      `DatasetSelector` on `/explore`; both call the same `goToDataset` helper
+      (`frontend/src/navigation.js`).
+- [ ] 8.6 comparison basket. **Next up.**
 - [ ] 8.8 the workbench — last, and judged in use. It is 8.2 with the axes unpinned, so it is cheap
       to try and cheap to remove.
 - [ ] `MemoryABChart` and `MemoryRankChart` are superseded by 8.3 here; `CC_halfOverallChart` should move from `/raw` to
@@ -936,7 +941,7 @@ the first. Build in order.
       `tokens.variant` was written for. See CLAUDE.md's Frontend section for why this is a
       deliberately different use of the same tokens.
 
-### 8.3 Small multiples overview — the way in. Done for the overview; 8.4's click-through is separate
+### 8.3 Small multiples overview — the way in. Done
 
 - [x] **A grid of B-vs-A parity scatters, one panel per metric, all showing the same ~229 samples.**
       At a glance: which metrics B moved and which it left alone. Click a panel to expand it; click
@@ -947,27 +952,54 @@ the first. Build in order.
       `MetricScatter` per `/cohort` registry metric in a card grid; clicking a card opens the same
       metric full-size in a MUI `Dialog` rather than a dedicated expanded layout. Coverage
       (`n / N complete`, missing A/missing B) is a line above the grid, read straight off
-      `/cohort`'s `coverage` field per the coverage-not-filtering rule. **Clicking a point to open
-      that sample's detail page is not built** — there is no detail page yet;
-      that's 8.4, unstarted.
+      `/cohort`'s `coverage` field per the coverage-not-filtering rule. Clicking a point now opens
+      that sample's detail page too — done in 8.4, below.
 
-### 8.4 Dataset detail page and the "what moved" strip
+### 8.4 Dataset detail page and the "what moved" strip. Done
 
-- [ ] **A per-sample page that puts every metric in one place** — the cohort row's scalars, the CC½
+- [x] **A per-sample page that puts every metric in one place** — the cohort row's scalars, the CC½
       curve, the memory profile and the stage timings, for A and B together. This is the direct
       answer to "not enough context on one dataset": you currently cannot tell whether a memory
       spike coincides with a resolution change.
-- [ ] **A "what moved" strip at the top** — a compact row of Δ badges (memory +12%, runtime −3%,
+      Done as `frontend/src/pages/DatasetDetailPage.jsx`, mounted at `explore/dataset/:run/*` in
+      `App.jsx` — a splat route for the composite `dataset/sample` id, the exact frontend analogue
+      of the backend's `{dataset:path}` fix from phase 2b. Reuses `DatasetChart` +
+      `useDatasetResource` (raw and comparison) and `MemoryProfilerPlot` unmodified apart from one
+      new optional `fixedDataset` prop that bypasses its own picker — additive, existing callers
+      unaffected. **Two entry points, one code path:** a `DatasetSelector` on `/explore`
+      (`ExplorePage.jsx`) and a new `onPointClick` prop on `MetricScatter` (wired through
+      `CohortGrid`, with `stopPropagation()` on the underlying DOM event so a point click doesn't
+      also trigger the card's own expand-to-`Dialog` handler) both call the same
+      `goToDataset(navigate, run, dataset)` helper — pulled out to `frontend/src/navigation.js`
+      rather than colocated in `ExplorePage.jsx` as first drafted, since a page file exporting
+      anything besides its component trips this repo's `react-refresh/only-export-components` lint
+      rule.
+- [x] **A "what moved" strip at the top** — a compact row of Δ badges (memory +12%, runtime −3%,
       d_min unchanged) so the answer precedes the charts rather than having to be read out of them.
       Direction-of-better comes from the metric registry (8.1), so a green badge means *better*,
       not *larger*.
+      Done as `frontend/src/components/WhatMovedStrip.jsx` — one MUI `Chip` per `/cohort` registry
+      metric (11 today), coloured `success`/`error` by `metric.better` vs the sign of `B - A`,
+      neutral grey when `better` is `null` (e.g. `low_resolution_limit`), and a plain "—" chip for a
+      row whose `status` isn't `"complete"` rather than a dropped badge, per the coverage-not-filtering
+      rule. `formatValue`/`metricValue` (and `MetricScatter`'s `FORMATTERS`) were hoisted out of
+      `MetricScatter.jsx` into `frontend/src/theme/metricFormat.js` so this component could reuse
+      them without reaching into a chart component's internals.
 
-### 8.5 Outlier callouts
+### 8.5 Outlier callouts. Done
 
-- [ ] **Auto-label the N points furthest from the parity line** in any `MetricScatter`, so the
+- [x] **Auto-label the N points furthest from the parity line** in any `MetricScatter`, so the
       interesting samples name themselves instead of having to be hunted by hover. Falls out of 8.2
       almost for free. Pairs naturally with 8.3: the overview then reads "B moved memory, and these
       four datasets are why".
+      **Done as colour, not a label.** The top 5 points ranked by `|B - A|` (a proxy for distance
+      from the parity line — exact for ranking purposes since both axes share one domain) get
+      `tokens.series[1]` instead of the default muted colour, set per-datapoint via `itemStyle` on
+      just those items. A text label was the original idea, but full sample ids are long enough to
+      overlap heavily at this chart size; colour needs no layout space and the full id is still one
+      hover away in the tooltip, unchanged. N was raised from the originally-discussed 3 to 5 once
+      colour replaced text — clutter was the reason to keep N small, and a colour dot doesn't clutter
+      the way a label would.
 
 ### 8.6 Comparison basket
 
