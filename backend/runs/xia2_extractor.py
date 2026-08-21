@@ -152,19 +152,17 @@ def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str)
     return res
 
 def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
-    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
-    files = workspace.list_files(data_src)
-    wanted = ["xia2-timing.json"]
+    """Builds the path directly rather than listing and filtering — called once per sample."""
+    top, sample = dataset.split("/", 1)
+    res = {"A": [], "B": []}
 
-    res = {"A": [],"B": []}
-
-    for f in files:
-        if f.name not in wanted:
+    for variant in ("A", "B"):
+        path = f"{run_id}/{top}/data/{sample}/{variant}/xia2-timing.json"
+        if not workspace.exists(path):
             continue
-        
+
+        timing = json.loads(workspace.read_text(path))
         events = []
-        text = workspace.read_text(f)
-        timing = json.loads(text)
 
         for item in timing:
             if "time_start" not in item or "time_end" not in item or "runtime" not in item:
@@ -176,8 +174,9 @@ def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
                 "time_end": float(item["time_end"]),
                 "runtime": float(item["runtime"])
             })
-        
-        res[f.parent.name] = events
+
+        res[variant] = events
+
     return res
 
 def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
@@ -258,11 +257,7 @@ def extract_xia2_comparison(workspace: Workspace, run_id: str) -> dict:
     )
 
 def extract_xia2_memory(workspace: Workspace, run_id: str) -> dict:
-    return _extract_memory_files(
-        workspace,
-        run_id,
-        ["peak_memory-integrate.txt"],
-    )
+    return _extract_memory_files(workspace, run_id, "peak_memory-integrate.txt")
 
 def _sample_key(path: Path) -> str:
     # Composite `"dataset/sample"` when the path is deep enough to have both
@@ -311,24 +306,24 @@ def _extract_cc_half_from_raw(workspace: Workspace, run_id: str, names: list[str
 
     return result
 
-def _extract_memory_files(workspace: Workspace, run_id: str, names: list[str]) -> dict:
+def _extract_memory_files(workspace: Workspace, run_id: str, filename: str) -> dict:
+    """Builds the path directly per (dataset, sample, variant) rather than listing and filtering."""
+    # Matches every number in the file; the peak value is the last one, e.g.
+    # "mprofile-integrate.dat\t26186.895 MiB" -> ["26186.895"] -> 26186.895.
     pattern = re.compile(r"[-+]?\d*\.\d+|\d+")
-
-    files = workspace.list_files(workspace.resolve(run_id))
-    wanted = set(names)
-
     result = {}
 
-    for f in files:
-        if f.name not in wanted:
-            continue
+    for composite_id in extract_xia2_datasets(workspace, run_id):
+        top, sample = composite_id.split("/", 1)
 
-        td = _sample_key(f)
-        matches = pattern.findall(workspace.read_text(f))
-        value = float(matches[-1]) if matches else None
+        for variant in ("A", "B"):
+            path = f"{run_id}/{top}/data/{sample}/{variant}/{filename}"
+            if not workspace.exists(path):
+                continue
 
-        result.setdefault(td, {})
-        # Differentiate between the peak memory values in the A vs B folder
-        result[td][f.parent.name] = value
+            matches = pattern.findall(workspace.read_text(path))
+            value = float(matches[-1]) if matches else None
+
+            result.setdefault(composite_id, {})[variant] = value
 
     return result

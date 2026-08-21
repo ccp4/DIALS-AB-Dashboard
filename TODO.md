@@ -17,7 +17,9 @@ deployability, provenance, and clear failure reporting well above what a persona
 > composite `"dataset/sample"` id; see CLAUDE.md's workspace-layout note before touching any of
 > `xia2_extractor.py`'s per-dataset functions. `/runs/{run_id}` now also carries each run's A/B
 > DIALS build, surfaced by `RunProvenance.jsx` on both pages, with a warning when selected runs'
-> A builds differ. **The next task is phase 4 — the views**, below — the largest remaining phase:
+> A builds differ. `/cohort`/`/memory`/`/cumulative` were also sped up ~12–24x (section 3) before
+> starting phase 4, since every phase-4 view depends on `/cohort`. **The next task is phase 4 — the
+> views**, below — the largest remaining phase:
 > new net-new UI (8.2's `MetricScatter` primitive through 8.8's workbench), though everything in it
 > reads from the now-built `/cohort` and inherits phase 1's tokens/chrome rather than establishing
 > its own, per section 8's own framing. Read section 8 in full before starting; it's ordered by
@@ -540,16 +542,34 @@ facet until it exists.
 
 - [x] **Blocking event loop** — see section 1; this is the dominant cost.
 - [x] **No compression** — see section 2.
+- [x] **`/memory`, `/cumulative` and `/cohort` were walking the whole run tree with `rglob` to find
+      a few hundred small files by name**, instead of constructing the (now-known) exact path per
+      `(dataset, sample, variant)` — the same pattern `extract_xia2_summary` already used. Found by
+      profiling `/cohort` directly (it was measured, not assumed, at **3.2–3.4 s**) rather than
+      guessing: `extract_xia2_memory` was 1.33 s of that, `extract_xia2_cumulative_timing` 1.65 s
+      (via 231 separate small `rglob` calls in `extract_xia2_timing`, one per sample, instead of one
+      shared walk or — better — no walk at all). Rewrote `_extract_memory_files` and
+      `extract_xia2_timing` to build the direct path and check `exists()` instead of listing and
+      filtering. Verified output is byte-identical before/after on `xia2-irrmc-inflate-2700`, and
+      re-measured: `/cohort` 3.2–3.4 s → **~0.25–0.3 s** (~12x), `/memory` 1.5 s → **0.06 s** (~24x),
+      `/cumulative` 1.65 s → **0.14 s** (~12x). Done before phase 4 rather than after, since every
+      phase-4 view reads `/cohort` and would otherwise pay this tax through the whole phase's
+      development. **Deliberately left `_extract_json_files` (backs `/raw`, `/comparison`) alone** —
+      not a measured bottleneck for anything currently planned, and `/raw` is a phase-5 retirement
+      candidate once `CC_halfOverallChart` moves onto the cohort table, so optimising its walk would
+      likely be wasted work.
 - [ ] `/raw` returns all 227 datasets in one 1.68 MB response. No pagination or partial fetch.
-      Measured latencies: `/memory` 0.90 s, `/cumulative` 0.88 s, `/raw` 1.51 s.
+      Measured latencies (superseded by the walk fix above for `/memory`/`/cumulative`): `/raw`
+      1.51 s.
 - [ ] **Residual event-loop stall at response encoding** (found while verifying the `async` fix).
       With the handlers threadpooled, `/ping` now stays at 3–5 ms for the whole of `/raw`'s
       extraction — but spikes once to **312 ms** at the moment `/raw` completes. That is FastAPI
       serialising the 1.68 MB dict to JSON, which happens on the event loop regardless of how the
       handler ran. Down from a sustained 1107 ms, so the fix is real, but not to zero. Dissolves if
       `/raw` is retired (phase 5) — do not chase it before then.
-- [ ] Response caching is intentionally deferred (see [CLAUDE.md](CLAUDE.md)), but note the
-      combination — no cache, no compression, blocking loop — is what makes exploration sluggish.
+- [ ] Response caching is intentionally deferred (see [CLAUDE.md](CLAUDE.md)) — still true, but the
+      "no cache, no compression, blocking loop" combination named here is now down to just `/raw`
+      and `/comparison`; `/memory`/`/cumulative`/`/cohort` no longer need a cache to feel fast.
 
 ## 4. Architecture and design
 

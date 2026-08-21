@@ -207,13 +207,16 @@ Two consequences worth internalising:
   other request (measured: `/ping` 3 ms → 1107 ms while one `/raw` was in flight). Do not add
   `async` to a handler unless its body is genuinely awaitable throughout. Every route calls
   `_ensure_run_exists(run_id)` first — a missing run 404s instead of the old silent `200 []`.
-- **Extractor** does all workspace I/O and file parsing. Most extractors walk `list_files()` and
-  filter by an exact filename set — there is no globbing or path construction to the leaf files.
-  **`extract_xia2_summary` is the one exception**: it constructs the
-  `<run_id>/<dataset>/data/<sample>/{A,B}/xia2-summary.dat` path directly per sample instead of
-  walking and filtering, because it needs to know *which* sample a file belongs to as it reads it,
-  not just discover files named `xia2-summary.dat`. Keep this pattern for anything else that needs
-  per-sample identity; don't retrofit it onto the filename-filter extractors without reading 2b below.
+- **Extractor** does all workspace I/O and file parsing. `_extract_json_files` (backs `/raw`,
+  `/comparison`) is the one extractor still walking `list_files()` and filtering by an exact
+  filename set. Everything else that needs a specific sample's file constructs the path directly —
+  `<run_id>/<dataset>/data/<sample>/{A,B}/<filename>` — rather than walking and filtering:
+  `extract_xia2_summary` (needs to know *which* sample a file belongs to as it reads it),
+  `extract_xia2_timing` and `_extract_memory_files` (backing `/cumulative` and `/memory`, rewritten
+  in TODO section 3 after profiling showed the `rglob` walk, not the file parsing, was the entire
+  cost — 1.3–1.65 s down to well under 0.2 s each). Keep this pattern for anything new that needs
+  per-sample identity or gets measurably slow at `list_files`' expense. `_extract_json_files` is
+  deliberately left alone — not a measured bottleneck, and `/raw` is a phase-5 retirement candidate.
 - **Processor** reshapes into ECharts-ready series and does the numeric work (`numpy` interpolation
   for CC½ at a given resolution). `build_cohort` (below) is the one processor function that isn't
   reshaping for a chart — it's a join.
