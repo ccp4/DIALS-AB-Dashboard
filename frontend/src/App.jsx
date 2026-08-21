@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import DashboardLayout from "./components/DashboardLayout"
 import DataSetsPage from "./pages/DataSetsPage"
 import DataMemoryPage from "./pages/DataMemoryPage"
+import ExplorePage from "./pages/ExplorePage"
 import ErrorBoundary from "./components/ErrorBoundary"
 
 function App() {
@@ -22,6 +23,14 @@ function App() {
             element={
               <ErrorBoundary label="Data quality">
                 <DataSetsPage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="explore"
+            element={
+              <ErrorBoundary label="Explore">
+                <ExplorePage />
               </ErrorBoundary>
             }
           />

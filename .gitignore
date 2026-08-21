@@ -36,3 +36,6 @@ __pycache__
 backend/venv/
 backend/storage/processed_runs
 test.py
+
+# Subagent-driven-development scratch (ledgers, briefs, review packages)
+.superpowers/

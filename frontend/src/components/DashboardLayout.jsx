@@ -47,6 +47,10 @@ export default function DashboardLayout() {
 					<ListItemButton component={Link} to="/datasets">
 						<ListItemText primary="Data Quality" />
 					</ListItemButton>
+
+					<ListItemButton component={Link} to="/explore">
+						<ListItemText primary="Explore" />
+					</ListItemButton>
 				</List>
       </Drawer>
 

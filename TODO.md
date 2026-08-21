@@ -18,12 +18,12 @@ deployability, provenance, and clear failure reporting well above what a persona
 > `xia2_extractor.py`'s per-dataset functions. `/runs/{run_id}` now also carries each run's A/B
 > DIALS build, surfaced by `RunProvenance.jsx` on both pages, with a warning when selected runs'
 > A builds differ. `/cohort`/`/memory`/`/cumulative` were also sped up ~12–24x (section 3) before
-> starting phase 4, since every phase-4 view depends on `/cohort`. **The next task is phase 4 — the
-> views**, below — the largest remaining phase:
-> new net-new UI (8.2's `MetricScatter` primitive through 8.8's workbench), though everything in it
-> reads from the now-built `/cohort` and inherits phase 1's tokens/chrome rather than establishing
-> its own, per section 8's own framing. Read section 8 in full before starting; it's ordered by
-> dependency and 8.2 is deliberately the shared primitive the rest configure.
+> starting phase 4, since every phase-4 view depends on `/cohort`. **Phase 4 is underway**: 8.2
+> (`MetricScatter`, the shared parity-scatter primitive) and 8.3 (`CohortGrid`, the small-multiples
+> overview, live at `/explore`) are both done. **The next task is 8.5 — outlier callouts**, which
+> this file's own framing called "nearly free once 8.2 exists"; that is now genuinely true. Read
+> section 8 in full before starting; it's ordered by dependency and 8.2 is deliberately the shared
+> primitive the rest configure.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -404,9 +404,23 @@ Small, independent, and a prerequisite in spirit for phase 4.
 
 Section 8's order. Each inherits 1a's tokens and 1c's chrome rather than establishing its own.
 
-- [ ] 8.2 `MetricScatter` — the shared primitive.
-- [ ] 8.3 small multiples overview, adopting the loading/error/empty pattern from 1c.
-- [ ] 8.5 outlier callouts — nearly free once 8.2 exists.
+- [x] 8.2 `MetricScatter` — the shared primitive.
+      Done as `frontend/src/components/MetricScatter.jsx` — one B-against-A parity scatter per
+      metric, with an identity line, a linear fit (`echarts-stat`) and a win-count/median-B/A
+      summary callout, per the domain conventions' "no single sign convention" rule. **Reimplements
+      `MemoryABChart`'s identity-line/regression/summary logic independently rather than extracting
+      it** — `MemoryABChart` is itself superseded and deleted later in this phase (see the bullet
+      below), so extracting from code about to be deleted wasn't worth it. **Colour/size encoding
+      props from the original 8.2 write-up are deferred to 8.8** — the workbench is the first real
+      consumer of them; 8.3 doesn't need them and nothing else does yet.
+- [x] 8.3 small multiples overview, adopting the loading/error/empty pattern from 1c.
+      Done as `frontend/src/components/CohortGrid.jsx` (a grid of `MetricScatter`, one card per
+      registry metric, click-to-expand into a `Dialog`) and `frontend/src/pages/ExplorePage.jsx`
+      (new `/explore` route: run selector in the page, `CohortGrid` fetching inside its own
+      `ErrorBoundary` — the same split as `DataMemoryPage`/`DataSetsPage`, so a failed `/cohort`
+      fetch doesn't take the run selector down with it). The coverage line (`n / N complete`, missing
+      A/missing B counts) reads straight off `/cohort`'s `coverage` field.
+- [ ] 8.5 outlier callouts — nearly free once 8.2 exists. **Next up**, now genuinely true.
 - [ ] 8.4 dataset detail page and the "what moved" strip.
 - [ ] 8.6 comparison basket.
 - [ ] 8.8 the workbench — last, and judged in use. It is 8.2 with the axes unpinned, so it is cheap
@@ -877,22 +891,65 @@ the first. Build in order.
       1's event-loop item materially more valuable than they are today.
       Live, with a Pydantic response model (`routers/models.py`) — the first in the codebase.
 
-### 8.2 `MetricScatter` — the shared primitive
+### 8.2 `MetricScatter` — the shared primitive. Done
 
-- [ ] **One scatter component, configured three ways.** Props: x metric, y metric, optional colour
+- [x] **One scatter component, configured three ways.** Props: x metric, y metric, optional colour
       and size encodings, optional parity line, optional regression fit. Small multiples (8.3) is a
       grid of it with axes pinned to `(A metric, B metric)`; the workbench (8.8) is a single
       instance with those axes exposed as pickers. Because they are the same component, trying the
       workbench costs a dropdown panel rather than a second view.
-- [ ] Fix A and B to consistent colours here — section 4 already flags that A/B colour is data
+      Done as `frontend/src/components/MetricScatter.jsx`, taking `rows` (cohort rows) and a
+      `metric` (one registry entry) and rendering a B-against-A scatter for it: identity line,
+      linear fit (`echarts-stat`'s `regression("linear", ...)`), and a summary callout of
+      win-count-vs-`metric.better` plus median B/A — the win-count/median-ratio shape CLAUDE.md's
+      domain conventions require for any new A/B summary, not a gradient-only headline. Axes are
+      pinned to `A`/`B`, not configurable yet — that's what makes it "one primitive, configured
+      three ways" rather than a generic XY scatter; 8.8 is the configuration that unpins them.
+      **Scoped down from the write-up:** colour/size encoding props don't exist yet, deferred to
+      8.8 (the first thing that actually needs them — 8.3 shows one metric per panel, so it has
+      nothing to colour or size by). **Not extracted from `MemoryABChart`** despite the
+      near-identical identity-line/regression/summary shape — `MemoryABChart` is superseded and
+      deleted later in this phase (see the phase-4 bullet below), so sharing code with something
+      about to be deleted would have been wasted effort. The actual prop is a single `metric` (not
+      separate x/y metric props — both axes are pinned to A and B of the same metric), and the
+      identity line and regression fit are unconditional, always rendered when the data allows,
+      not optional toggles. That means 8.8 (unpinning the axes) will need a **signature change** to
+      `MetricScatter` — accepting separate x/y metrics — plus a corresponding change to how
+      `CohortGrid`/the workbench calls it, not just a new boolean prop; keep that in mind so 8.8's
+      cost estimate stays honest.
+      **Visual polish pass, after looking at it live:** `grid` margins are fixed pixel values, not
+      `containLabel: true` — the latter resizes the plot box per-panel to fit that panel's own tick
+      label width, which is what made panels look inconsistently shaped next to each other; fixed
+      margins make every panel's plot box identical regardless of content. Axis ticks are truncated
+      to 0–2 decimals by magnitude (`formatAxisTick`) rather than showing a raw padded float. The
+      regression line is `tokens.series[0]`, not `tokens.line.annotation` like `MemoryABChart`'s —
+      `line.annotation` is the same hex as the point colour here, so the two were indistinguishable;
+      a categorical accent reads clearly against both the muted points and the dashed identity line.
+      The summary callout's position depends on `enableZoom`: a plain band under the plot when zoom
+      is off (the small-multiples grid), the original boxed top-right overlay when zoom is on (the
+      expanded dialog) — the zoom slider needs the bottom of the chart there instead.
+- [x] Fix A and B to consistent colours here — section 4 already flags that A/B colour is data
       encoding, not decoration, and this is the component that should establish it.
+      Done: axis *names* (not points — see the note below) use `tokens.variant.A`/`.B`, since a
+      `MetricScatter` point is one sample carrying both an A and a B value rather than a
+      per-variant series — there is no "A-coloured mark" here the way there is in the six charts
+      `tokens.variant` was written for. See CLAUDE.md's Frontend section for why this is a
+      deliberately different use of the same tokens.
 
-### 8.3 Small multiples overview — the way in
+### 8.3 Small multiples overview — the way in. Done for the overview; 8.4's click-through is separate
 
-- [ ] **A grid of B-vs-A parity scatters, one panel per metric, all showing the same ~229 samples.**
+- [x] **A grid of B-vs-A parity scatters, one panel per metric, all showing the same ~229 samples.**
       At a glance: which metrics B moved and which it left alone. Click a panel to expand it; click
       a point to open that sample's detail page (8.4). This is the front door for the whole loop —
       a survey, not a hypothesis test.
+      Done as `frontend/src/components/CohortGrid.jsx`, mounted at the new `/explore` route
+      (`frontend/src/pages/ExplorePage.jsx`, added to `src/App.jsx`'s route table). One
+      `MetricScatter` per `/cohort` registry metric in a card grid; clicking a card opens the same
+      metric full-size in a MUI `Dialog` rather than a dedicated expanded layout. Coverage
+      (`n / N complete`, missing A/missing B) is a line above the grid, read straight off
+      `/cohort`'s `coverage` field per the coverage-not-filtering rule. **Clicking a point to open
+      that sample's detail page is not built** — there is no detail page yet;
+      that's 8.4, unstarted.
 
 ### 8.4 Dataset detail page and the "what moved" strip
 

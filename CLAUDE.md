@@ -78,9 +78,12 @@ documented below under *Data fetching*, *URL state* and *Frontend*. `GET /runs/{
 (below, under *Backend pipeline*) is live: one row per `(dataset, sample)`, a backend-owned metric
 registry, coverage reported rather than filtered, and its memory/runtime join is exact per sample.
 `/runs/{run_id}` carries each run's A/B DIALS build (`builds`), surfaced by
-`src/components/RunProvenance.jsx` on both pages. **The next thing to do is phase 4 — the views**
-(TODO section 0 and section 8): the largest remaining phase, building the actual exploration UI
-(8.2's `MetricScatter` primitive through 8.8's workbench) on top of everything above.
+`src/components/RunProvenance.jsx` on both pages. **Phase 4 — the views — is underway.** 8.2
+(`MetricScatter`, the shared B-vs-A parity-scatter primitive) and 8.3 (`CohortGrid`, the
+small-multiples cohort overview) are both live at the new `/explore` route
+(`src/pages/ExplorePage.jsx`). **The next thing to do is 8.5** (TODO section 0 and section 8) —
+outlier callouts on top of `MetricScatter` — followed by the rest of phase 4 (8.4's dataset detail
+page, 8.6's comparison basket, 8.8's workbench).
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
@@ -288,7 +291,8 @@ resolve by Node walking up the tree, which works locally and fails for anyone wh
 `frontend/`.
 
 Routing in `src/App.jsx`: `/` → `DataMemoryPage` (memory + timings), `/datasets` → `DataSetsPage`
-(data quality). Both render inside `DashboardLayout`.
+(data quality), `/explore` → `ExplorePage` (the cohort overview, TODO 8.3). All three render inside
+`DashboardLayout`.
 
 `src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback.
 It is used at two levels: around each route in `App.jsx`, and around each chart in the pages.
@@ -299,6 +303,15 @@ selected runs, or the run id) so changing selection retries instead of leaving t
 **It only catches render errors.** Fetch failures reach it because `useApi` forwards them with
 `useErrorBoundary().showBoundary()`, not because React catches them. Anything that throws
 asynchronously outside those hooks still needs forwarding by hand.
+
+**`MetricScatter` (`/explore`, TODO 8.2) uses A/B differently from every other chart here.**
+Everywhere else, A and B are two separate series, each drawn in its own fixed colour
+(`tokens.variant.A`/`.B` — see section 0 phase 1a in TODO.md). `MetricScatter` instead puts A on
+the x-axis and B on the y-axis: one point is one sample, carrying both an A value and a B value, so
+there is no per-variant series to colour. Only the axis *names* use `tokens.variant.A`/`.B`; the
+scatter points are a plain single colour. A future chart that treats a `MetricScatter` point as
+"the A series" or "the B series" and tries to colour it from `tokens.variant` is misapplying a
+convention built for a different chart shape.
 
 ## Data fetching
 
@@ -349,6 +362,9 @@ across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice
 (`${metric}_ds` as a map, `${metric}_sync`, so the "Raw" and "Comparison" panels on `DataSetsPage`
 don't collide), and `MemoryProfilerPlot`'s dataset choice (`ds_${run}`). Still `useState`: trace
 selection within `DatasetChart`, and the axis pickers phase 4's views will introduce (TODO 8.7).
+`/explore` (`ExplorePage.jsx`) deliberately does **not** share `runs` — it holds its own single-run
+`run` param instead, because reusing `runs` there let changing the dropdown silently truncate the
+other pages' multi-run selection down to one.
 
 ## Chart chrome
 
