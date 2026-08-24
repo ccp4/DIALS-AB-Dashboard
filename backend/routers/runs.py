@@ -50,13 +50,14 @@ def get_dataset_comparison(run_id: str, dataset: str):
     result = service.get_xia2_dataset_comparison(run_id, dataset)
     return result
 
-@router.get("/{run_id}/raw/interpolated")
-def get_interpolated_points(run_id: str, x: float):
+@router.get("/{run_id}/cc_half")
+def get_cc_half(run_id: str):
     """
-    Returns interpolated points at given value for CC_half
+    Returns the DIALS-computed CC½ threshold crossing (d_min) per dataset,
+    for A and B — a direct extraction, not an interpolation.
     """
     _ensure_run_exists(run_id)
-    return service.get_cc_half_points(run_id=run_id, x=x)
+    return service.get_cc_half(run_id=run_id)
 
 @router.get("/{run_id}/comparison")
 def get_comparison(run_id: str):

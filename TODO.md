@@ -16,13 +16,14 @@ intact) once it reaches `[x]` and needs no further action; do not delete history
 
 ## 0. Order of work
 
-> **Resuming? Start here.** Phases 0 through 3 are complete (backend pipeline, frontend plumbing,
-> theme, provenance — see [ARCHIVE.md](ARCHIVE.md) section 0). Phase 4 (the views) is nearly done:
-> 8.2, 8.3, 8.4 and 8.5 are live, and 8.8 (the workbench) was built, tried against a real run, and
-> reverted after being judged not useful — see ARCHIVE.md section 0, phase 4 and section 8. **The
-> next task is moving `CC_halfOverallChart` off `/raw`** onto the cohort table. `MemoryABChart` and
+> **Resuming? Start here.** Phases 0 through 4 are complete (backend pipeline, frontend plumbing,
+> theme, provenance, the views — see [ARCHIVE.md](ARCHIVE.md) section 0). `MemoryABChart` and
 > `MemoryRankChart` are *not* superseded by 8.3 and both stay — each shows all selected runs at once
-> on one page load, which the single-run-scoped `/explore` doesn't do.
+> on one page load, which the single-run-scoped `/explore` doesn't do. `CC_halfOverallChart` moved
+> off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint (section 6), not onto the cohort
+> table as originally planned — see that entry for why. **This left `/raw` (the whole-run route)
+> with zero frontend consumers, but it stays deliberately** — kept as a dev/test route rather than
+> retired (see section 7). Phase 5 stays "do not schedule" otherwise.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -58,21 +59,21 @@ in-flight component migration, 1c chart chrome/layout) because they had to happe
 
 ### Phase 3 — provenance. Done — see ARCHIVE.md section 0
 
-### Phase 4 — the views
+### Phase 4 — the views. Done — see ARCHIVE.md section 0
 
 Section 8's order. Each inherits 1a's tokens and 1c's chrome rather than establishing its own.
 8.2 (`MetricScatter`), 8.3 (`CohortGrid`), 8.5 (outlier callouts), 8.4 (the dataset detail page) and
 8.8 (the workbench — built, tried, reverted) are all done; see ARCHIVE.md section 0 phase 4 (and
-section 8, for each item's own detailed write-up). One item remains:
+section 8, for each item's own detailed write-up). `CC_halfOverallChart` also moved off `/raw`
+(section 6), completing this phase.
 
-- [ ] `CC_halfOverallChart` should move from `/raw` to the cohort table, at which point `/raw` may
-      have no consumers left. **Next up.**
-      **`MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and both stay.** They first
-      looked redundant with 8.3's per-metric panels (peak memory is one of the 11 registry metrics),
-      but 8.3/`/explore` is scoped to a single run at a time — `MemoryABChart` renders one parity
-      scatter per selected run in a grid on one page load, and `MemoryRankChart` ranks peak memory
-      across all selected runs on one shared chart. Both show every selected run at once, which
-      switching `/explore`'s single-run selector back and forth does not replicate.
+**Standing note, not a task: `MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and
+both stay.** They first looked redundant with 8.3's per-metric panels (peak memory is one of the 11
+registry metrics), but 8.3/`/explore` is scoped to a single run at a time — `MemoryABChart` renders
+one parity scatter per selected run in a grid on one page load, and `MemoryRankChart` ranks peak
+memory across all selected runs on one shared chart. Both show every selected run at once, which
+switching `/explore`'s single-run selector back and forth does not replicate. Do not re-propose
+retiring either without addressing this.
 
 ### Phase 5 — reassess, do not schedule yet
 
@@ -88,30 +89,19 @@ facet until it exists.
 - [ ] Cross-filtered linked views (section 8, deferred) — needs the phase-4 views to exist first.
 - [ ] User-facing docs on what the charts mean (section 5) — genuinely last; written earlier they
       document views that are about to change.
-- [ ] Residual event-loop stall at response encoding (section 3) — same disposition as the
-      pagination item below: retiring `/raw` removes it. Do not chase it separately.
-- [ ] **`/raw` pagination (section 3): probably do not do this.** Its surviving consumer,
-      `CC_halfOverallPanel` (the fetch was lifted out of `CC_halfOverallChart` in 1a), pulls 1.68 MB
-      to read three scalars that the cohort table will hold. Expect to retire the endpoint rather
-      than paginate it — confirm after phase 4. Retiring it deletes `CC_halfOverallPanel` too.
-- [ ] `interpolate`'s descending-`x` bug (section 1): **do not fix.** Section 6 records that
-      `/raw/interpolated` is being reworked to *extract* the real value rather than interpolate one,
-      which dissolves the bug. Just do not reintroduce interpolation over descending `x`.
+- [ ] Residual event-loop stall at response encoding (section 3) — was expected to dissolve if
+      `/raw` were retired; it wasn't (section 7), so this stays a known, accepted cost of keeping a
+      dev/test route around rather than something to chase.
+- [ ] `/raw` pagination (section 3) — moot, not "probably do not do this": `/raw` has zero frontend
+      consumers now (`CC_halfOverallPanel` was the last one, moved to `GET /runs/{run_id}/cc_half`,
+      section 6), so there's nothing left to paginate for. See section 7 — kept deliberately as a
+      dev/test route rather than retired.
 
 ---
 
 ## 1. Bugs — wrong output or crashes
 
-Most items here are resolved — see [ARCHIVE.md](ARCHIVE.md) section 1.
-
-- [ ] **`interpolate` returns silently wrong numbers.**
-      [xia2_processor.py:58-66](backend/runs/xia2_processor.py#L58-L66) — `np.interp` requires
-      ascending `x`, but the real `cc_half` data is descending (confirmed:
-      `0.160222, 0.157991, 0.155688…`). On a toy case this gives `0.1` where the answer is `0.65`.
-      The commented-out `arr[::-1]` on line 60 is the intended fix.
-      Currently dormant: `/raw/interpolated` has zero frontend callers. Fix before wiring it up.
-      **Do not fix standalone** — see phase 5: `/raw/interpolated` is being reworked to *extract*
-      the real value rather than interpolate one, which dissolves the bug.
+All items here are resolved — see [ARCHIVE.md](ARCHIVE.md) section 1.
 
 ## 2. Quick fixes
 
@@ -119,8 +109,9 @@ Done — see [ARCHIVE.md](ARCHIVE.md) section 2.
 
 ## 3. Performance
 
-The blocking event loop, the missing compression, and the `/memory`/`/cumulative`/`/cohort` `rglob`
-walk are all resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
+The blocking event loop, the missing compression, the `/memory`/`/cumulative`/`/cohort` `rglob`
+walk, and `GET /runs/{run_id}`'s full-tree `rglob` in `extract_xia2_build_info` (1.4–1.6 s → 0.02–0.06 s)
+are all resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
 
 - [ ] `/raw` returns all 227 datasets in one 1.68 MB response. No pagination or partial fetch.
       Measured latencies (superseded by the walk-elimination fix in ARCHIVE.md section 3 for
@@ -129,8 +120,9 @@ walk are all resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
       With the handlers threadpooled, `/ping` now stays at 3–5 ms for the whole of `/raw`'s
       extraction — but spikes once to **312 ms** at the moment `/raw` completes. That is FastAPI
       serialising the 1.68 MB dict to JSON, which happens on the event loop regardless of how the
-      handler ran. Down from a sustained 1107 ms, so the fix is real, but not to zero. Dissolves if
-      `/raw` is retired (phase 5) — do not chase it before then.
+      handler ran. Down from a sustained 1107 ms, so the fix is real, but not to zero. Would have
+      dissolved if `/raw` were retired, but it stays deliberately as a dev/test route (section 7) —
+      not worth chasing further given `/raw` has no real frontend consumer left to feel it.
 - [ ] Response caching is intentionally deferred (see [CLAUDE.md](CLAUDE.md)) — still true, but the
       "no cache, no compression, blocking loop" combination named here is now down to just `/raw`
       and `/comparison`; `/memory`/`/cumulative`/`/cohort` no longer need a cache to feel fast.
@@ -214,12 +206,6 @@ confirmed to have zero callers; dispositions are from the author.
 
 **Planned work, keep:**
 
-- [ ] [`_extract_cc_half_from_raw`](backend/runs/xia2_extractor.py#L169) — to be completed. Moves
-      CC½-at-a-threshold lookup (e.g. the value at 0.5) from the frontend to the backend.
-- [ ] `/runs/{run_id}/raw/interpolated` — to be reworked alongside the above so it **extracts** the
-      real value rather than interpolating one. Rename accordingly (`/cc_half/at/{value}` or
-      similar). Note this **dissolves the `np.interp` bug in section 1** rather than requiring a
-      fix — just don't reintroduce interpolation over descending `x` without reversing first.
 - [ ] [`MemoryOverlayChart`](frontend/src/components/memory/MemoryOverlayChart.jsx) — exploratory but
       considered useful; keep for now.
 
@@ -234,6 +220,9 @@ confirmed to have zero callers; dispositions are from the author.
 ## 7. Deliberate — do not "fix"
 
 - The commented-out cache `load()` short-circuit in `RunService.get_xia2_raw` — deferred by choice.
+- `/raw` (the whole-run route) having zero frontend consumers, ever since `CC_halfOverallChart`
+  moved onto `GET /runs/{run_id}/cc_half` (section 6). Kept deliberately as a dev/test route rather
+  than retired — do not delete it, `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
 - `MemoryPanels` and `CC_halfOverallPanel` looking like pointless one-job wrappers around a chart.
   They exist so the fetch escalates to a boundary that does **not** contain the run selector.
   Inlining them back into the page is the obvious simplification and it reintroduces the failure

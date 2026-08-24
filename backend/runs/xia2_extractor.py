@@ -5,36 +5,38 @@ import re
 from bisect import bisect_left
 
 
-def _list_dataset_dirs(workspace: Workspace, run_id: str) -> list:
-    return workspace.list_dirs(workspace.resolve(run_id))
+def _dataset_sample_path(run_id: str, dataset: str) -> str:
+    """`dataset` is a composite `"dataset/sample"` id — resolve it to the sample's directory."""
+    top, sample = dataset.split("/", 1)
+    return f"{run_id}/{top}/data/{sample}"
 
 def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     """
     Every selectable `"dataset/sample"` id for a run — always composite, even
     for the common single-sample case, so nothing downstream has to special-case
     which format an id is in.
+
+    Derived from `good_master_files.txt` (one line per sample, path shape
+    `.../{dataset}/data/{sample}_master.h5`, confirmed against every run in the
+    workspace) instead of listing every dataset directory and then listing each
+    one's `data/` subdirectory — that walk cost ~227 dataset-directory listings
+    for one `/runs/{run_id}` request. A handful of manifest entries have no
+    local `data/{sample}` directory (aborted/incomplete processing), so each
+    candidate is still checked with `exists()` before being included.
     """
-    return [
-        f"{dataset}/{sample}"
-        for dataset in _list_dataset_dirs(workspace, run_id)
-        for sample in extract_xia2_samples(workspace, run_id, dataset)
-    ]
+    manifest = workspace.read_text(f"{run_id}/good_master_files.txt").splitlines()
 
-def _dataset_sample_path(run_id: str, dataset: str) -> str:
-    """`dataset` is a composite `"dataset/sample"` id — resolve it to the sample's directory."""
-    top, sample = dataset.split("/", 1)
-    return f"{run_id}/{top}/data/{sample}"
+    result = []
+    for line in manifest:
+        master_path = Path(line.strip())
+        dataset = master_path.parent.parent.name
+        sample = master_path.name.removesuffix("_master.h5")
+        if workspace.exists(f"{run_id}/{dataset}/data/{sample}"):
+            result.append(f"{dataset}/{sample}")
 
-def extract_xia2_samples(workspace: Workspace, run_id: str, dataset: str) -> list:
-    # Some dataset dirs are missing the `data/` layer entirely (a handful of
-    # incomplete/aborted entries in run 2700) — no samples, not a crash.
-    data_dir = f"{run_id}/{dataset}/data"
-    if not workspace.exists(data_dir):
-        return []
+    return result
 
-    return workspace.list_dirs(workspace.resolve(data_dir))
-
-def extract_xia2_build_info(workspace: Workspace, run_id: str) -> dict:
+def extract_xia2_build_info(workspace: Workspace, run_id: str, datasets: list) -> dict:
     """
     The DIALS build (version + git hash) used for A and B, e.g.
     `"DIALS 3.dev.1493-gf324578a1"` — the provenance CLAUDE.md's domain
@@ -43,28 +45,31 @@ def extract_xia2_build_info(workspace: Workspace, run_id: str) -> dict:
     comparison's confound visible instead of implied.
 
     One build per variant is used for the whole run, logged identically in
-    every sample's `xia2-debug.txt` (confirmed: run 2700's 460 copies of the
-    line are identical per variant) — so this reads only as many of those
-    ~2000-line files as it takes to find one A and one B, not all 460.
+    every sample's `xia2-debug.txt` — so this checks the direct
+    `<dataset>/data/<sample>/{A,B}/xia2-debug.txt` path for each already-known
+    dataset/sample id in turn, stopping as soon as both are found, rather than
+    recursively walking every file in the run to find one by name. `datasets`
+    is `extract_xia2_datasets`'s output, passed in rather than recomputed since
+    the caller (`get_run_metadata`) already has it.
     """
-    files = workspace.list_files(workspace.resolve(run_id))
     result = {"A": None, "B": None}
 
-    for f in files:
-        if f.name != "xia2-debug.txt":
-            continue
-
-        variant = f.parent.name
-        if variant not in result or result[variant] is not None:
-            continue
-
-        for line in workspace.read_text(f).splitlines():
-            if line.startswith("DIALS ") and "-g" in line:
-                result[variant] = line.strip()
-                break
-
+    for dataset in datasets:
         if all(result.values()):
             break
+
+        for variant in ("A", "B"):
+            if result[variant] is not None:
+                continue
+
+            debug_path = f"{_dataset_sample_path(run_id, dataset)}/{variant}/xia2-debug.txt"
+            if not workspace.exists(debug_path):
+                continue
+
+            for line in workspace.read_text(debug_path).splitlines():
+                if line.startswith("DIALS ") and "-g" in line:
+                    result[variant] = line.strip()
+                    break
 
     return result
 
@@ -285,24 +290,35 @@ def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> 
 
     return result
 
-def _extract_cc_half_from_raw(workspace: Workspace, run_id: str, names: list[str]) -> dict:
-    files = workspace.list_files(workspace.resolve(run_id))
-    wanted = set(names)
+def extract_xia2_cc_half(workspace: Workspace, run_id: str) -> dict:
+    """
+    The DIALS-computed CC½ threshold crossing (`d_min`) per dataset, for A and
+    B. Not an interpolation — `dials.estimate_resolution-{A,B}.json`'s
+    `cc_half.data` already carries the crossing as a marker line named
+    `"d_min = ... Å"`, whose x-coordinate (inverse-square-d units, same as the
+    curve's own x-axis) is the value; this reads it directly per
+    (dataset, sample) rather than downloading and grepping the whole `/raw`
+    payload client-side.
 
-    result = {}
+    Shape matches `extract_xia2_cumulative_timing`: `{"A": [[dataset, value],
+    ...], "B": [...]}` — one entry per dataset that has a value for that
+    variant.
+    """
+    result = {"A": [], "B": []}
 
-    for f in files:
-        if f.name not in wanted:
-            continue
-
-        td = _sample_key(f)
-
-        data = json.loads(workspace.read_text(f))
-        cc_half = data.get("cc_half", {}).get("data", {})
-        for trace in cc_half:
-            if "d_min" not in trace["name"]:
+    for composite_id in extract_xia2_datasets(workspace, run_id):
+        for variant in ("A", "B"):
+            path = f"{_dataset_sample_path(run_id, composite_id)}/dials.estimate_resolution-{variant}.json"
+            if not workspace.exists(path):
                 continue
 
+            data = json.loads(workspace.read_text(path))
+            traces = data.get("cc_half", {}).get("data", [])
+            trace = next((t for t in traces if str(t.get("name", "")).startswith("d_min")), None)
+            if trace is None or not trace.get("x"):
+                continue
+
+            result[variant].append([composite_id, trace["x"][0]])
 
     return result
 

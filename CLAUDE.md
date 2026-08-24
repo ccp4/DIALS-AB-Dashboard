@@ -229,10 +229,12 @@ Two consequences worth internalising:
   in TODO section 3 after profiling showed the `rglob` walk, not the file parsing, was the entire
   cost — 1.3–1.65 s down to well under 0.2 s each). Keep this pattern for anything new that needs
   per-sample identity or gets measurably slow at `list_files`' expense. `_extract_json_files` is
-  deliberately left alone — not a measured bottleneck, and `/raw` is a phase-5 retirement candidate.
-- **Processor** reshapes into ECharts-ready series and does the numeric work (`numpy` interpolation
-  for CC½ at a given resolution). `build_cohort` (below) is the one processor function that isn't
-  reshaping for a chart — it's a join.
+  deliberately left alone — not a measured bottleneck. `/raw` (the whole-run route) has zero
+  frontend consumers as of `CC_halfOverallChart` moving onto `GET /runs/{run_id}/cc_half`, but stays
+  deliberately as a dev/test route rather than being retired (TODO section 7) — do not delete it,
+  `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
+- **Processor** reshapes into ECharts-ready series. `build_cohort` (below) is the one processor
+  function that isn't reshaping for a chart — it's a join.
 - **Storage** (`FileSystemRunRepository`) is a JSON cache keyed `<run_id>/<resource>`. `save()` is
   called but the corresponding `load()` short-circuit in `get_xia2_raw` is commented out, so
   requests currently re-extract from disk every time. This is why the timing middleware in
@@ -242,14 +244,26 @@ Two consequences worth internalising:
 ### The series contract
 
 `_apache_series_builder` emits `{"name": ..., "data": [[x, y], ...]}` and prefixes names with
-`"A - "` / `"B - "` based on the source filename. Three frontend components locate traces by
-substring match on that name:
+`"A - "` / `"B - "` based on the source filename. `DatasetChart` locates traces by substring match
+on that name (`"fit"`, to pick out fitted curves within `cc_half`) — **renaming in the builder
+breaks that chart silently**, no error, just an empty plot. Grep the frontend for the trace name
+before changing it. `CC_halfOverallChart` used to do the same (`"A - d_min"`/`"B - d_min"`) against
+`/raw`, but no longer goes through `_apache_series_builder` at all — see `GET /runs/{run_id}/cc_half`
+below.
 
-- `CC_halfOverallChart` — `"A - d_min"`, `"B - d_min"`, `"d_min"`
-- `DatasetChart` — `"fit"`, to pick out fitted curves within `cc_half`
+### `GET /runs/{run_id}/cc_half`
 
-**Renaming in the builder breaks those charts silently** — no error, just an empty plot. Grep the
-frontend for the trace name before changing it.
+Not an interpolation despite the route it replaced (`/raw/interpolated`) being named that way —
+`dials.estimate_resolution-{A,B}.json`'s `cc_half.data` already carries the CC½-threshold crossing
+DIALS itself computed, as a marker line named `"d_min = ... Å"` whose x-coordinate (inverse-square-d
+units) *is* the value. `extract_xia2_cc_half` reads that directly per `(dataset, sample)` via
+`_dataset_sample_path`, the same pattern as every other per-sample extractor, rather than
+downloading and grepping the whole `/raw` payload client-side the way `CC_halfOverallChart` used to.
+Response shape matches `/cumulative`: `{"A": [[dataset, value], ...], "B": [...]}`. Considered
+folding this into `/cohort` as a 12th registry metric instead of a standalone endpoint — kept
+separate since it's a different DIALS computation (`dials.estimate_resolution`) from the
+`xia2-summary.dat`-derived registry, and `CC_halfOverallChart`'s per-run overview shape doesn't fit
+the per-`(dataset, sample)` cohort row shape anyway.
 
 ### The cohort table
 

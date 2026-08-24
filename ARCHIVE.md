@@ -402,6 +402,10 @@ TODO.md's phase 4 for the one item still open.
       (`frontend/src/navigation.js`).
 - [x] 8.8 the workbench — built, tried, reverted. Judging it in use was the whole point, and the
       judgment was no.
+- [x] `CC_halfOverallChart` moved off `/raw` — not onto the cohort table as originally planned, but
+      onto its own `GET /runs/{run_id}/cc_half` endpoint. See section 6's `_extract_cc_half_from_raw`
+      entry for the full detail; kept separate from `/cohort` since it's a different DIALS
+      computation (`dials.estimate_resolution`) than the `xia2-summary.dat`-derived registry.
 
 ---
 
@@ -487,6 +491,15 @@ TODO.md's phase 4 for the one item still open.
       `tokens.ink.strong` at `opacity: 0.7`. The identity line (`tokens.line.reference`, a separate,
       lighter grey) was already fine and is unchanged.
 
+- [x] **`interpolate` returns silently wrong numbers** — resolved by deletion, not a fix.
+      `np.interp` required ascending `x`, but the real `cc_half` data is descending, and the
+      commented-out `arr[::-1]` fix was never applied. Dissolved rather than fixed: the value
+      `/raw/interpolated` was computing (CC½ at an arbitrary threshold, via curve interpolation) was
+      never actually what was needed — `dials.estimate_resolution-{A,B}.json` already carries the
+      real DIALS-computed threshold crossing as a marker line's x-coordinate, no interpolation
+      required. `interpolate_cc_half`/`interpolate` (`xia2_processor.py`) deleted outright; see
+      section 6's `_extract_cc_half_from_raw`/`/raw/interpolated` entry for the replacement.
+
 ## 2. Quick fixes (done)
 
 - [x] Uncomment `GZipMiddleware` in [main.py:34-38](backend/main.py#L34). The `/raw` payload is
@@ -524,6 +537,29 @@ TODO.md's phase 4 for the one item still open.
       not a measured bottleneck for anything currently planned, and `/raw` is a phase-5 retirement
       candidate once `CC_halfOverallChart` moves onto the cohort table, so optimising its walk would
       likely be wasted work.
+- [x] **`GET /runs/{run_id}` (the dataset-picker/provenance endpoint) took 1.4–1.6 s** — noticed as
+      `MemoryProfilerPlot`'s dataset dropdown loading noticeably slower than the rest of the page.
+      Measured, not assumed, before fixing: `extract_xia2_datasets` (listing every dataset
+      directory, then listing each one's `data/` subdirectory — ~227 directory listings) cost only
+      ~0.04 s; the real cost was `extract_xia2_build_info`'s `workspace.list_files(...)`, a full
+      recursive `rglob("*")` over the *entire* run tree with an `is_file()` stat on every entry,
+      just to find files named `xia2-debug.txt` by iterating the fully-materialized list afterwards
+      — the early-exit once both A and B builds were found never actually shortened the walk, since
+      the walk was already complete before that loop started (~0.33 s alone).
+      Fixed both: `extract_xia2_datasets` now derives the dataset/sample list from
+      `good_master_files.txt` (one line per sample, path shape
+      `.../{dataset}/data/{sample}_master.h5` — confirmed against every run in the workspace, zero
+      exceptions) instead of walking directories, with an `exists()` check per candidate to exclude
+      the handful of aborted/incomplete entries the manifest still lists. `extract_xia2_build_info`
+      now takes that already-computed dataset list as a parameter (from `get_run_metadata`, which
+      already had it) and checks the direct `<dataset>/data/<sample>/{A,B}/xia2-debug.txt` path per
+      candidate, stopping as soon as both builds are found, instead of walking the whole tree.
+      Verified output is identical before/after (same 231 datasets, same build strings) on
+      `xia2-irrmc-inflate-2700` and `-5400`. Re-measured against the live server:
+      **1.4–1.6 s → 0.02–0.06 s** (~30–70x). `test_cohort.py`'s fixture needed a matching update —
+      its `good_master_files.txt` was empty (harmless under the old directory-listing
+      implementation, but `extract_xia2_summary` also calls `extract_xia2_datasets`), so the
+      fixture now writes one manifest line per sample it creates.
 
 ## 4. Architecture and design (resolved items)
 
@@ -626,6 +662,25 @@ TODO.md's phase 4 for the one item still open.
 - [x] `RunService.run_exists` — no current caller, but it is the natural fix for the HTTP 200
       -on-unknown-run bug in section 1. Keep and use it.
       Used now, in every route's `_ensure_run_exists` guard (phase 2, section 0).
+- [x] `_extract_cc_half_from_raw` (completed) and `/runs/{run_id}/raw/interpolated` (reworked and
+      renamed) — moved the CC½-threshold-crossing lookup from the frontend digging through `/raw` to
+      a proper backend extraction. Renamed to `GET /runs/{run_id}/cc_half`, since "interpolated" was
+      always a misnomer once the value turned out to already be DIALS-computed and directly
+      readable, not something to fit a curve through — see section 1's `interpolate` entry for that
+      half of it. `extract_xia2_cc_half` reads `dials.estimate_resolution-{A,B}.json` directly per
+      `(dataset, sample)` (via `extract_xia2_datasets` + `_dataset_sample_path`, the same pattern as
+      every other per-sample extractor), pulling the `"d_min = ... Å"` marker line's x-coordinate
+      out of `cc_half.data` rather than walking the whole run tree. Response shape matches
+      `/cumulative`: `{"A": [[dataset, value], ...], "B": [...]}`. `CC_halfOverallChart`/
+      `CC_halfOverallPanel` switched from `/raw` to this — the chart itself got substantially
+      simpler (no more nested trace-name digging, just an `Object.fromEntries` lookup per variant).
+      Verified: response payload dropped from 1.72 MB to 26 KB (~64x smaller) and identical values
+      confirmed against the raw JSON directly, on `xia2-irrmc-inflate-2700`.
+      **Considered folding this into `/cohort` as a 12th registry metric instead** — kept as its own
+      endpoint since it's a different DIALS computation (`dials.estimate_resolution`) from the
+      `xia2-summary.dat`-derived registry, and `CC_halfOverallChart`'s per-run overview doesn't fit
+      the per-`(dataset, sample)` cohort row shape anyway. No `test_cohort.py` changes needed — it
+      doesn't exercise `/cc_half`.
 
 **Superseded, safe to delete:**
 

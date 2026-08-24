@@ -62,6 +62,13 @@ def _write_sample(root: Path, dataset: str, sample: str, variants: str, peak_mem
             }
         ]))
 
+    # One line per sample regardless of variant count, matching the real
+    # manifest's shape (`.../{dataset}/data/{sample}_master.h5`) —
+    # extract_xia2_datasets derives the dataset list from this file now.
+    manifest_path = root / RUN_ID / "good_master_files.txt"
+    with manifest_path.open("a") as f:
+        f.write(f"/external/path/{dataset}/data/{sample}_master.h5\n")
+
 
 def _build_fixture_workspace(tmp_path: Path) -> Path:
     (tmp_path / RUN_ID).mkdir()

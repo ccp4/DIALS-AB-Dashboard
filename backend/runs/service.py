@@ -1,6 +1,6 @@
 from storage.local import FileSystemRunRepository
-from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing, extract_xia2_summary, extract_xia2_build_info
-from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, interpolate_cc_half, build_cohort
+from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing, extract_xia2_summary, extract_xia2_build_info, extract_xia2_cc_half
+from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, build_cohort
 from runs.metrics import METRICS
 
 class RunService:
@@ -22,10 +22,11 @@ class RunService:
         return runs
     
     def get_run_metadata(self, run_id: str):
+        datasets = self.get_datasets(run_id=run_id)
         return {
             "run_id" : run_id,
-            "datasets": self.get_datasets(run_id=run_id),
-            "builds": extract_xia2_build_info(self.workspace, run_id),
+            "datasets": datasets,
+            "builds": extract_xia2_build_info(self.workspace, run_id, datasets),
             "raw" : self.repo.exists(f"{run_id}/raw"),
             "comparison" : self.repo.exists(f"{run_id}/comparison"),
             "memory" : self.repo.exists(f"{run_id}/memory"),
@@ -57,12 +58,8 @@ class RunService:
         processed = process_xia2_data(clean)
         return processed.get(dataset, {})
     
-    def get_cc_half_points(self, run_id: str, x: float):
-        data = extract_xia2_raw(self.workspace, run_id)
-        clean = clean_xia2_data(data)
-        processed = process_xia2_data(clean)
-
-        return interpolate_cc_half(processed, x)
+    def get_cc_half(self, run_id: str):
+        return extract_xia2_cc_half(self.workspace, run_id)
 
     def get_xia2_comparison(self, run_id: str):
         key = f"{run_id}/comparison"

@@ -28,24 +28,16 @@ function CC_halfOverallChart({ data }) {
 
     runs.forEach((run, runIndex) => {
 
-        const runData = memory[run] ?? {};
+        const runData = memory[run] ?? { A: [], B: [] };
 
-        const runDatasets = Object.keys(runData);
+        const aLookup = Object.fromEntries(runData.A ?? []);
+        const bLookup = Object.fromEntries(runData.B ?? []);
 
-        const datasets = runDatasets.sort((a, b) => {
+        // Best (highest inverse-square-d, i.e. best resolution) first.
+        const sortKey = (dataset) => aLookup[dataset] ?? bLookup[dataset] ?? -Infinity;
 
-            const getVal = (ds) => {
-                const ccHalf = runData[ds]?.cc_half ?? [];
-
-                const trace = ccHalf.find(t =>
-                    t?.name?.includes("d_min")
-                );
-
-                return trace?.data?.[0]?.[0] ?? -Infinity;
-            };
-
-            return getVal(b) - getVal(a);
-        });
+        const datasets = Array.from(new Set([...Object.keys(aLookup), ...Object.keys(bLookup)]))
+            .sort((a, b) => sortKey(b) - sortKey(a));
 
         const valuesA = [];
         const valuesB = [];
@@ -53,18 +45,8 @@ function CC_halfOverallChart({ data }) {
 
         datasets.forEach(dataset => {
 
-            const ccHalf = runData[dataset]?.cc_half ?? [];
-
-            const Atrace = ccHalf.find(t =>
-                t?.name?.includes("A - d_min")
-            );
-
-            const Btrace = ccHalf.find(t =>
-                t?.name?.includes("B - d_min")
-            );
-
-            const aVal = Atrace?.data?.[0]?.[0] ?? null;
-            const bVal = Btrace?.data?.[0]?.[0] ?? null;
+            const aVal = aLookup[dataset] ?? null;
+            const bVal = bLookup[dataset] ?? null;
 
             valuesA.push(aVal);
             valuesB.push(bVal);
@@ -75,17 +57,10 @@ function CC_halfOverallChart({ data }) {
                     : null
             );
 
-            if (
-                !Atrace?.data?.length ||
-                !Btrace?.data?.length
-            ) {
+            if (aVal == null || bVal == null) {
                 console.warn(
                     `[CC_halfOverallChart] Missing d_min`,
-                    {
-                        run,
-                        dataset,
-                        ccHalfAvailable: ccHalf.map(t => t?.name)
-                    }
+                    { run, dataset, aVal, bVal }
                 );
             }
 

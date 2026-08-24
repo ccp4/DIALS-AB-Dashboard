@@ -3,18 +3,17 @@ import LoadingState from "./LoadingState";
 import { useApiAll } from "../hooks/useApi";
 
 /**
- * Fetches the raw resource for each selected run and hands it to
+ * Fetches the CC½ threshold crossing for each selected run and hands it to
  * `CC_halfOverallChart`.
  *
  * Exists so the fetch sits inside a boundary below the run selector rather
- * than in the page beside it. Retired along with `/raw` in phase 1b, when
- * selection moves into `RunMetricPanel` and per-dataset requests replace it.
+ * than in the page beside it.
  *
  * @param {string[]} runs Run ids.
  */
 export default function CC_halfOverallPanel({ runs }) {
     const { data } = useApiAll(
-        runs.map(run => ({ key: run, path: `/runs/${run}/raw` }))
+        runs.map(run => ({ key: run, path: `/runs/${run}/cc_half` }))
     );
 
     // Runs already in `data` render immediately; only the ones still in
