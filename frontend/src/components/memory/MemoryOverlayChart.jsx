@@ -1,6 +1,6 @@
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../../theme/chartChrome";
 
 function MemoryOverlayChart({ data }) {
     const runs = Object.keys(data);

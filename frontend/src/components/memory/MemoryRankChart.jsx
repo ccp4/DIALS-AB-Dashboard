@@ -1,7 +1,7 @@
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
-import { variantSeriesStyle } from "../theme/variant";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../../theme/chartChrome";
+import { variantSeriesStyle } from "../../theme/variant";
 
 /**
  * Peak memory for every dataset, ranked high to low, with all selected runs on

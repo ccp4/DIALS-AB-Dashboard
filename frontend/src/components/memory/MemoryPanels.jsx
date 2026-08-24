@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import ErrorBoundary from "./ErrorBoundary";
-import LoadingState from "./LoadingState";
+import ErrorBoundary from "../ErrorBoundary";
+import LoadingState from "../LoadingState";
 import MemoryABChart from "./MemoryABChart";
 import MemoryComparisonBlock from "./MemoryComparisonBlock";
 import MemoryProfilerPlot from "./MemoryProfilerPlot";
 import MemoryRankChart from "./MemoryRankChart";
 import CumulativeTimeTaken from "./CumulativeTimeTaken";
-import { useApiAll } from "../hooks/useApi";
+import { useApiAll } from "../../hooks/useApi";
 
 const DS_PREFIX = "ds_";
 

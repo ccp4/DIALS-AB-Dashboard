@@ -1,5 +1,5 @@
 import MultiRunSelector from "../components/data-quality/MultiRunSelector";
-import MemoryPanels from "../components/MemoryPanels";
+import MemoryPanels from "../components/memory/MemoryPanels";
 import RunProvenance from "../components/RunProvenance";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useUrlParamList } from "../hooks/useUrlState";

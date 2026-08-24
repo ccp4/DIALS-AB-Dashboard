@@ -1,5 +1,5 @@
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
 
 function SingleMemoryPlot({ run, data }) {
 

@@ -6,7 +6,7 @@ import DatasetSelector from "../components/data-quality/DatasetSelector";
 import { useDatasetResource } from "../components/data-quality/useDatasetResource";
 import ErrorBoundary from "../components/ErrorBoundary";
 import LoadingState from "../components/LoadingState";
-import MemoryProfilerPlot from "../components/MemoryProfilerPlot";
+import MemoryProfilerPlot from "../components/memory/MemoryProfilerPlot";
 import RunProvenance from "../components/RunProvenance";
 import WhatMovedStrip from "../components/WhatMovedStrip";
 import { useApi } from "../hooks/useApi";

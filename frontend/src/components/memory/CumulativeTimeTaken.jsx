@@ -1,10 +1,10 @@
 import EChartsStat from "echarts-stat";
 
-import Chart from "./Chart";
-import LoadingState from "./LoadingState";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
-import { useApi } from "../hooks/useApi";
+import Chart from "../Chart";
+import LoadingState from "../LoadingState";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
+import { useApi } from "../../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {
   const { data, loading } = useApi(`/runs/${run}/cumulative`);

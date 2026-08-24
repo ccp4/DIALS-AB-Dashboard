@@ -1,10 +1,10 @@
 import { Autocomplete, TextField, Box } from "@mui/material";
 
-import Chart from "./Chart";
-import LoadingState from "./LoadingState";
-import { tokens, withAlpha } from "../theme/tokens";
-import { useApi } from "../hooks/useApi";
-import { useUrlParam } from "../hooks/useUrlState";
+import Chart from "../Chart";
+import LoadingState from "../LoadingState";
+import { tokens, withAlpha } from "../../theme/tokens";
+import { useApi } from "../../hooks/useApi";
+import { useUrlParam } from "../../hooks/useUrlState";
 
 /**
  * Background bands for the three long-running stages. Drawn from the
@@ -16,6 +16,17 @@ const STAGE_BANDS = {
   "dials.index": withAlpha(tokens.series[4], 0.25),
   "dials.integrate": withAlpha(tokens.series[0], 0.25),
 };
+
+function relativeDuration(samples) {
+  if (!samples || samples.length === 0) return 0;
+  const t0 = samples[0][0];
+  return Math.max(...samples.map(([t]) => t - t0));
+}
+
+function maxMemory(samples) {
+  if (!samples || samples.length === 0) return 0;
+  return Math.max(...samples.map(([, m]) => m));
+}
 
 function MemoryProfilerPlot({ run, fixedDataset }) {
   const [urlDataset, setUrlDataset] = useUrlParam(`ds_${run}`);
@@ -39,9 +50,16 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
 
   const loadingMemory = memory.loading || commands.loading || info.loading;
 
+  // Shared axes so A and B render at the same pixel-per-unit scale —
+  // otherwise each chart auto-scales to its own data and a
+  // shorter/lower-peak run looks misleadingly similar to a
+  // longer/higher-peak one.
+  const xMax = Math.max(relativeDuration(memoryData?.A), relativeDuration(memoryData?.B)) * 1.05 || 1;
+  const yMax = Math.max(maxMemory(memoryData?.A), maxMemory(memoryData?.B)) * 1.05 || 1;
+
   if (loadingDatasets) return <LoadingState label="Loading datasets..." />;
 
-  const makeOption = (title, samples, commands, variant) => {
+  const makeOption = (title, samples, commands, variant, xMax, yMax) => {
       if (!samples || samples.length === 0) {
         return {
           title: {
@@ -98,12 +116,16 @@ const markAreas = commands.map(cmd => {
 
       xAxis: {
         type: "value",
-        name: "Time (s)"
+        name: "Time (s)",
+        min: 0,
+        max: xMax
       },
 
       yAxis: {
         type: "value",
-        name: "Memory (MiB)"
+        name: "Memory (MiB)",
+        min: 0,
+        max: yMax
       },
 
       series: [
@@ -175,7 +197,9 @@ const markAreas = commands.map(cmd => {
               "DIALS A",
               memoryData.A,
               commandData.A,
-              "A"
+              "A",
+              xMax,
+              yMax
             )}
             style={{ height: tokens.chart.height.panel }}
           />
@@ -185,7 +209,9 @@ const markAreas = commands.map(cmd => {
               "DIALS B",
               memoryData.B,
               commandData.B,
-              "B"
+              "B",
+              xMax,
+              yMax
             )}
             style={{ height: tokens.chart.height.panel, marginTop: 30 }}
           />

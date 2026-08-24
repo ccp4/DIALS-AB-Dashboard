@@ -1,8 +1,8 @@
 import EChartsStat from "echarts-stat";
 
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
 
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit
