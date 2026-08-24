@@ -49,9 +49,12 @@ None of this is derivable from the code, and all of it affects whether a change 
 [TODO.md](TODO.md) is the categorised backlog — bugs, quick fixes, performance, architecture,
 product gaps, and the status of every unused symbol in the repo. It is the product of a full
 codebase review with findings verified against a running instance, so measurements in it are real
-rather than estimated.
+rather than estimated. **[ARCHIVE.md](ARCHIVE.md) holds everything that reached `[x]`** — mirrors
+TODO.md's section numbers exactly, so "section 4" means the same section in both files. TODO.md
+stays the active backlog; ARCHIVE.md is where the detailed "why" behind a decision already made
+lives, kept verbatim rather than summarized. Move an item there once it's done, don't delete it.
 
-Read it before proposing changes. In particular:
+Read TODO.md before proposing changes. In particular:
 
 - **Section 0 is the sequence, and the other sections are only the categories.** It orders every
   item into phases 0–5 on the principle of *least wasted work* — which is not the same as
@@ -82,8 +85,13 @@ registry, coverage reported rather than filtered, and its memory/runtime join is
 (`MetricScatter`, the shared B-vs-A parity-scatter primitive), 8.3 (`CohortGrid`, the
 small-multiples cohort overview, at `/explore`), 8.5 (outlier points highlighted by colour in
 `MetricScatter`) and 8.4 (`DatasetDetailPage`, the per-sample detail view with its "what moved"
-strip, at `/explore/dataset/:run/*`) are all live. **The next thing to do is 8.6** (TODO section 0
-and section 8) — the comparison basket — followed by 8.8's workbench.
+strip, at `/explore/dataset/:run/*`) are all live. 8.8 (the workbench — a mode toggle on `/explore`
+unpinning `MetricScatter`'s axes) was also built, tried against a real run, and reverted in full
+when judged not useful — see ARCHIVE.md's 8.8 entry. **The next thing to do is retiring
+`MemoryABChart`** (superseded by 8.3 — both are a per-run B-vs-A parity scatter for peak memory)
+**and moving `CC_halfOverallChart` off `/raw`** onto the cohort table (TODO section 0 and section
+8). `MemoryRankChart` is not superseded and stays — it ranks peak memory across all selected runs
+on one shared chart, which the single-run-scoped `/explore` doesn't do.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be
