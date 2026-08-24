@@ -20,10 +20,9 @@ intact) once it reaches `[x]` and needs no further action; do not delete history
 > theme, provenance — see [ARCHIVE.md](ARCHIVE.md) section 0). Phase 4 (the views) is nearly done:
 > 8.2, 8.3, 8.4 and 8.5 are live, and 8.8 (the workbench) was built, tried against a real run, and
 > reverted after being judged not useful — see ARCHIVE.md section 0, phase 4 and section 8. **The
-> next task is retiring `MemoryABChart`** (superseded by 8.3 — both are a per-run B-vs-A parity
-> scatter for peak memory) **and moving `CC_halfOverallChart` off `/raw`** onto the cohort table.
-> `MemoryRankChart` is *not* superseded and stays — it ranks peak memory across all selected runs on
-> one shared chart, which the single-run-scoped `/explore` doesn't do.
+> next task is moving `CC_halfOverallChart` off `/raw`** onto the cohort table. `MemoryABChart` and
+> `MemoryRankChart` are *not* superseded by 8.3 and both stay — each shows all selected runs at once
+> on one page load, which the single-run-scoped `/explore` doesn't do.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -66,13 +65,14 @@ Section 8's order. Each inherits 1a's tokens and 1c's chrome rather than establi
 8.8 (the workbench — built, tried, reverted) are all done; see ARCHIVE.md section 0 phase 4 (and
 section 8, for each item's own detailed write-up). One item remains:
 
-- [ ] `MemoryABChart` is superseded by 8.3 here — both are a B-vs-A parity scatter for peak memory
-      per run, and 8.3 already covers "peak memory, one run" as one of its 11 registry panels; the
-      multi-run loop just repeats what switching `/explore`'s run selector already gives you.
-      **`MemoryRankChart` is not superseded** — it ranks peak memory across *all selected runs on one
-      shared chart*, a genuinely cross-run view `/explore` doesn't have (it's scoped to a single
-      run), so it stays. `CC_halfOverallChart` should move from `/raw` to the cohort table, at which
-      point `/raw` may have no consumers left. **Next up.**
+- [ ] `CC_halfOverallChart` should move from `/raw` to the cohort table, at which point `/raw` may
+      have no consumers left. **Next up.**
+      **`MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and both stay.** They first
+      looked redundant with 8.3's per-metric panels (peak memory is one of the 11 registry metrics),
+      but 8.3/`/explore` is scoped to a single run at a time — `MemoryABChart` renders one parity
+      scatter per selected run in a grid on one page load, and `MemoryRankChart` ranks peak memory
+      across all selected runs on one shared chart. Both show every selected run at once, which
+      switching `/explore`'s single-run selector back and forth does not replicate.
 
 ### Phase 5 — reassess, do not schedule yet
 

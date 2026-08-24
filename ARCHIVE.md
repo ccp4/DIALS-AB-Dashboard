@@ -379,8 +379,10 @@ TODO.md's phase 4 for the one item still open.
       metric, with an identity line, a linear fit (`echarts-stat`) and a win-count/median-B/A
       summary callout, per the domain conventions' "no single sign convention" rule. **Reimplements
       `MemoryABChart`'s identity-line/regression/summary logic independently rather than extracting
-      it** — `MemoryABChart` is itself superseded and deleted later in this phase (see TODO.md's
-      phase-4 bullet), so extracting from code about to be deleted wasn't worth it. **Colour/size
+      it** — at the time this was believed to be temporary, since `MemoryABChart` looked superseded
+      by 8.3 and slated for deletion; it was later kept (see TODO.md's phase-4 bullet — it shows all
+      selected runs at once, which the single-run-scoped `/explore` doesn't), but the two components
+      never shared code either way, so nothing needs unwinding now. **Colour/size
       encoding props from the original 8.2 write-up were never built** — 8.8, the only planned
       consumer, was tried as an independent `WorkbenchPlot`/`Workbench` pair and reverted before
       colour/size scope was picked up.
@@ -476,6 +478,14 @@ TODO.md's phase 4 for the one item still open.
 - [x] **`CumulativeTimeTaken` crashed on render.** Undefined `regressionSummary`/`maxValue`, series
       nested inside `dataZoom`, and point data that didn't match its own axes. Fixed — now an
       A-vs-B scatter with identity line and regression fit.
+
+- [x] **`MemoryABChart` and `CumulativeTimeTaken` had the same regression-line/point colour
+      collision `MetricScatter` was fixed for (TODO 8.2).** Both used `tokens.line.annotation` for
+      the regression line and `tokens.ink.base` for the points — the literal same hex (`#52514e`),
+      so the fit line and the points were indistinguishable, not just similarly grey. Applied the
+      same fix already proven in `MetricScatter`: regression line → `tokens.series[0]`, points →
+      `tokens.ink.strong` at `opacity: 0.7`. The identity line (`tokens.line.reference`, a separate,
+      lighter grey) was already fine and is unchanged.
 
 ## 2. Quick fixes (done)
 
@@ -748,9 +758,10 @@ cost far less than the first. See TODO.md's section 8 for 8.7 (still open) and t
       **Scoped down from the write-up:** colour/size encoding props don't exist, and never got
       built — 8.8, the only thing that would have needed them, was tried and reverted before v1
       colour/size scope was ever picked up. **Not extracted from `MemoryABChart`** despite the
-      near-identical identity-line/regression/summary shape — `MemoryABChart` is superseded and
-      deleted later in this phase (see TODO.md's phase-4 bullet), so sharing code with something
-      about to be deleted would have been wasted effort. The actual prop is a single `metric` (not
+      near-identical identity-line/regression/summary shape — at the time this was believed
+      temporary, since `MemoryABChart` looked superseded by 8.3 and headed for deletion; it was
+      later kept instead (see TODO.md's phase-4 bullet), but the two components never shared code
+      either way, so nothing needs unwinding now. The actual prop is a single `metric` (not
       separate x/y metric props — both axes are pinned to A and B of the same metric), and the
       identity line and regression fit are unconditional, always rendered when the data allows, not
       optional toggles. **8.8 did not change this** — rather than a signature change to

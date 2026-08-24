@@ -105,7 +105,7 @@ function MemoryABChart({ data }) {
                         silent: true,
                         animation: false,
                         lineStyle: {
-                            color: tokens.line.annotation,
+                            color: tokens.series[0],
                             width: 2,
                         },
                         z: 1,
@@ -117,8 +117,8 @@ function MemoryABChart({ data }) {
                         symbolSize: 6,
 
                         itemStyle: {
-                            color: tokens.ink.base,
-                            opacity: 0.55,
+                            color: tokens.ink.strong,
+                            opacity: 0.7,
                         },
 
                         emphasis: {

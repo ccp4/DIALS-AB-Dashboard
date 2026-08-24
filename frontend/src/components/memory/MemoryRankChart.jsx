@@ -118,7 +118,7 @@ function MemoryRankChart({ data }) {
             notMerge
             lazyUpdate
             style={{
-                height: tokens.chart.height.panel,
+                height: tokens.chart.height.full,
                 width: "100%",
             }}
         />

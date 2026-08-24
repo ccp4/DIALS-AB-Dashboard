@@ -87,11 +87,13 @@ small-multiples cohort overview, at `/explore`), 8.5 (outlier points highlighted
 `MetricScatter`) and 8.4 (`DatasetDetailPage`, the per-sample detail view with its "what moved"
 strip, at `/explore/dataset/:run/*`) are all live. 8.8 (the workbench — a mode toggle on `/explore`
 unpinning `MetricScatter`'s axes) was also built, tried against a real run, and reverted in full
-when judged not useful — see ARCHIVE.md's 8.8 entry. **The next thing to do is retiring
-`MemoryABChart`** (superseded by 8.3 — both are a per-run B-vs-A parity scatter for peak memory)
-**and moving `CC_halfOverallChart` off `/raw`** onto the cohort table (TODO section 0 and section
-8). `MemoryRankChart` is not superseded and stays — it ranks peak memory across all selected runs
-on one shared chart, which the single-run-scoped `/explore` doesn't do.
+when judged not useful — see ARCHIVE.md's 8.8 entry. **The next thing to do is moving
+`CC_halfOverallChart` off `/raw`** onto the cohort table (TODO section 0 and section 8).
+`MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and both stay — they first looked
+redundant with 8.3's per-metric panels, but 8.3/`/explore` is scoped to a single run at a time:
+`MemoryABChart` renders one parity scatter per selected run in a grid on one page load, and
+`MemoryRankChart` ranks peak memory across all selected runs on one shared chart. Both show every
+selected run at once, which the single-run-scoped `/explore` doesn't do.
 
 Keep it current: when you fix something, tick it; when you find something new, add it to the right
 section **and** place it in section 0's sequence — an item with no phase is an item that will be

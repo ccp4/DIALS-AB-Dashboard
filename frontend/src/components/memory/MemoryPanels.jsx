@@ -5,7 +5,6 @@ import LoadingState from "../LoadingState";
 import MemoryABChart from "./MemoryABChart";
 import MemoryComparisonBlock from "./MemoryComparisonBlock";
 import MemoryProfilerPlot from "./MemoryProfilerPlot";
-import MemoryRankChart from "./MemoryRankChart";
 import CumulativeTimeTaken from "./CumulativeTimeTaken";
 import { useApiAll } from "../../hooks/useApi";
 
@@ -63,10 +62,6 @@ export default function MemoryPanels({ runs }) {
 
 			<ErrorBoundary label="Memory comparison" resetKeys={runs}>
 				<MemoryComparisonBlock data={data} />
-			</ErrorBoundary>
-
-			<ErrorBoundary label="Peak memory distribution" resetKeys={runs}>
-				<MemoryRankChart data={data} />
 			</ErrorBoundary>
 
 			<ErrorBoundary label="A vs B memory" resetKeys={runs}>

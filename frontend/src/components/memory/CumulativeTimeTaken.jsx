@@ -66,7 +66,7 @@ function CumulativeTimeTaken({ run }) {
       name: run,
       type: "scatter",
       symbolSize: 6,
-      itemStyle: { color: tokens.ink.base, opacity: 0.55 },
+      itemStyle: { color: tokens.ink.strong, opacity: 0.7 },
       emphasis: {
         scale: true,
         itemStyle: {
@@ -88,7 +88,7 @@ function CumulativeTimeTaken({ run }) {
       symbol: "none",
       silent: true,
       animation: false,
-      lineStyle: { color: tokens.line.annotation, width: 2 },
+      lineStyle: { color: tokens.series[0], width: 2 },
       z: 1,
     });
   }
