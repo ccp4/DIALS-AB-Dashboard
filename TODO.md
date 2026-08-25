@@ -23,7 +23,7 @@ intact) once it reaches `[x]` and needs no further action; do not delete history
 > off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint (section 6), not onto the cohort
 > table as originally planned — see that entry for why. **This left `/raw` (the whole-run route)
 > with zero frontend consumers, but it stays deliberately** — kept as a dev/test route rather than
-> retired (see section 7). Phase 5 stays "do not schedule" otherwise.
+> retired (see section 7). Phase 5 is down to one item now: user-facing docs.
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -75,27 +75,13 @@ memory across all selected runs on one shared chart. Both show every selected ru
 switching `/explore`'s single-run selector back and forth does not replicate. Do not re-propose
 retiring either without addressing this.
 
-### Phase 5 — reassess, do not schedule yet
+### Phase 5 — user-facing docs. The only remaining item
 
-Mostly blocked by phase 2 rather than deprioritised — there is no tidy table to export, aggregate or
-facet until it exists.
+Delta distributions, cross-filtered linked views, and `/raw` pagination were all reassessed and
+dropped as unnecessary.
 
-- [ ] Export (CSV/JSON) — near-trivial once the cohort table exists, since it is already
-      CSV-shaped. Pull into phase 2's tail if wanted.
-- [ ] Delta distributions, per-dataset significance (section 5) — the wrong-direction headline is
-      already handled in phase 0; this is the rest.
-- [ ] Spacegroup and cell-volume facets (section 8, deferred) — once 8.3 shows which hypotheses are
-      worth testing.
-- [ ] Cross-filtered linked views (section 8, deferred) — needs the phase-4 views to exist first.
-- [ ] User-facing docs on what the charts mean (section 5) — genuinely last; written earlier they
-      document views that are about to change.
-- [ ] Residual event-loop stall at response encoding (section 3) — was expected to dissolve if
-      `/raw` were retired; it wasn't (section 7), so this stays a known, accepted cost of keeping a
-      dev/test route around rather than something to chase.
-- [ ] `/raw` pagination (section 3) — moot, not "probably do not do this": `/raw` has zero frontend
-      consumers now (`CC_halfOverallPanel` was the last one, moved to `GET /runs/{run_id}/cc_half`,
-      section 6), so there's nothing left to paginate for. See section 7 — kept deliberately as a
-      dev/test route rather than retired.
+- [ ] User-facing docs on what the charts mean — genuinely last; written earlier they'd document
+      views that are about to change.
 
 ---
 
@@ -109,23 +95,9 @@ Done — see [ARCHIVE.md](ARCHIVE.md) section 2.
 
 ## 3. Performance
 
-The blocking event loop, the missing compression, the `/memory`/`/cumulative`/`/cohort` `rglob`
-walk, and `GET /runs/{run_id}`'s full-tree `rglob` in `extract_xia2_build_info` (1.4–1.6 s → 0.02–0.06 s)
-are all resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
+All resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
 
-- [ ] `/raw` returns all 227 datasets in one 1.68 MB response. No pagination or partial fetch.
-      Measured latencies (superseded by the walk-elimination fix in ARCHIVE.md section 3 for
-      `/memory`/`/cumulative`): `/raw` 1.51 s.
-- [ ] **Residual event-loop stall at response encoding** (found while verifying the `async` fix).
-      With the handlers threadpooled, `/ping` now stays at 3–5 ms for the whole of `/raw`'s
-      extraction — but spikes once to **312 ms** at the moment `/raw` completes. That is FastAPI
-      serialising the 1.68 MB dict to JSON, which happens on the event loop regardless of how the
-      handler ran. Down from a sustained 1107 ms, so the fix is real, but not to zero. Would have
-      dissolved if `/raw` were retired, but it stays deliberately as a dev/test route (section 7) —
-      not worth chasing further given `/raw` has no real frontend consumer left to feel it.
-- [ ] Response caching is intentionally deferred (see [CLAUDE.md](CLAUDE.md)) — still true, but the
-      "no cache, no compression, blocking loop" combination named here is now down to just `/raw`
-      and `/comparison`; `/memory`/`/cumulative`/`/cohort` no longer need a cache to feel fast.
+- [ ] Response caching is intentionally deferred (see [CLAUDE.md](CLAUDE.md)) — still true.
 
 ## 4. Architecture and design
 
@@ -157,7 +129,8 @@ resolved — see [ARCHIVE.md](ARCHIVE.md) section 4.
 ## 5. Product gaps — what stops this being a useful dashboard
 
 Provenance extraction and the A-not-a-fixed-baseline warning are resolved — see
-[ARCHIVE.md](ARCHIVE.md) section 5.
+[ARCHIVE.md](ARCHIVE.md) section 5. Delta distributions/per-dataset significance were tried once
+(a %Δ histogram, reverted) and dropped as unnecessary — see ARCHIVE.md section 5.
 
 - [ ] **Incomplete A/B pairs are silently dropped in `/memory`.** A missing `B/` directory means
       the comparison *cannot be made* for that dataset and must be reported — the extractor just
@@ -171,23 +144,6 @@ Provenance extraction and the A-not-a-fixed-baseline warning are resolved — se
       permanently (section 0 phase 4's standing note), not superseded by 8.3 as this bullet
       originally assumed. Minimum fix: have `/memory` report a coverage count the same shape as
       `/cohort`'s.
-
-- [ ] **No "so what?" layer.** No landing view answering *which datasets regressed, by how much,
-      ranked*. Users must select runs and eyeball charts. This is the difference between a plotting
-      tool and a dashboard.
-
-- [ ] **No shareable state.** Selections live in `useState`, not the URL, so you can't send a
-      colleague a link to what you just found. Matters much more for a community tool.
-
-- [ ] **No export.** No CSV/JSON download for downstream analysis.
-
-- [ ] **Thin statistics.** A regression slope is the only aggregate, and the "B is faster/slower by
-      N%" phrasing derives from gradient alone — with a non-zero intercept it flattens a crossover.
-      Same wording issue in `MemoryABChart`. No delta distribution, per-dataset significance, or
-      outlier flagging.
-
-- [ ] **No user-facing docs.** The README covers setup only — nothing on what the charts mean or
-      how to interpret A vs B. Needed for a semi-familiar audience.
 
 ## 6. Unused code — status confirmed
 
@@ -234,15 +190,5 @@ shared primitive that 8.3, 8.5 and 8.8 were configurations of. **8.1 through 8.5
 all done** — see [ARCHIVE.md](ARCHIVE.md) section 8 for each item's full write-up. Nothing remains
 open in this section.
 
-### Deferred — considered and not now
-
-- **Spacegroup and cell-volume facets** (filter the cohort to P4₁ only, or the largest cells).
-  Turns the scatter into a hypothesis tester. Worth having, but only once 8.3 shows which
-  hypotheses are worth testing.
-- **A fully cross-filtered dashboard** where brushing one view filters all the others. The best
-  possible answer to "why does B differ", and technically feasible at ~229 points — but it needs
-  shared selection state the app has no pattern for. This is where 8.1–8.8 grow to, once it is
-  clear which views actually get used.
-- **The provenance header** is not listed here because it is already section 5's item — but it is a
-  dependency in spirit: a cohort view that plots several runs together is misleading until the A
-  build hash for each run is on screen.
+A fully cross-filtered dashboard (brushing one view filters the others) was considered and dropped
+as unnecessary.

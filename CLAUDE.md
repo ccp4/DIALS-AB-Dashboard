@@ -4,116 +4,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A dashboard for visualising DIALS A/B testing. It reads the output of `xia2` processing runs from an
-external workspace directory, extracts metrics (resolution estimates, merging stats, peak memory,
-timings), and serves them to a React dashboard as chart-ready series.
+A dashboard for visualising DIALS A/B testing. Reads `xia2` processing run output from an external
+workspace, extracts metrics (resolution, merging stats, peak memory, timings), serves them to a
+React dashboard as chart-ready series.
 
-"A" and "B" are the two variants being compared in every run — nearly every data structure in the
-codebase is keyed by, or split into, `A` and `B`.
+"A" and "B" are the two variants compared in every run — nearly every data structure is keyed by,
+or split into, A and B.
 
-The intended audience is the wider community: specialised scientists and software engineers who are
-semi-familiar with the domain. That raises the bar on deployability, provenance and clear reporting
-above what a personal tool would need.
+Audience: the wider community (scientists + engineers semi-familiar with the domain) — raises the
+bar on deployability, provenance and clear reporting above a personal tool.
 
 ## Domain conventions
 
-None of this is derivable from the code, and all of it affects whether a change is correct.
+None of this is derivable from the code; all of it affects correctness.
 
-- **A is the current main DIALS build; B is the version being tested against it.** The run folder
-  name hints at what B is (e.g. `xia2-irrmc-inflate-2700`) but does not identify it precisely.
-- **A is not a fixed baseline.** It tracks whatever main was when the run executed — it is not
-  pinned per campaign. Run 2700's A is `DIALS 3.dev.1493-gf324578a1`; run 5400's A is
-  `3.dev.1488-g893c8dfee`. **Cross-run comparisons are therefore confounded** — a difference
-  between runs may be baseline drift rather than an effect of B. `MemoryRankChart` plots multiple
-  runs on shared axes; `RunProvenance.jsx` (phase 3) is the mitigation — it shows each selected
-  run's A/B build and warns when the A builds differ, but it doesn't stop this chart from still
-  plotting the confounded data side by side. `CC_halfOverallChart`/`MemoryABChart` render one
-  parity scatter per run in its own small-multiples panel instead — each has its own axes, so this
-  confound doesn't apply there the same way.
-- **The exact builds are extracted**, per variant, by `extract_xia2_build_info`
-  (`xia2_extractor.py`, phase 3) — reads `xia2-debug.txt` (also `xia2.txt` and
-  `dials.integrate.log`, unused so far), surfaced as `/runs/{run_id}`'s `builds` field.
-- **Missing data is not all equal.** A missing `B/` directory means the comparison *cannot be made*
-  and is significant. Empty lists or mismatched `x`/`y` arrays inside a data file are noise and
-  should be filtered silently — `_clean_trace_data` does this and is correct as written. Do not
-  conflate the two.
-- **Direction of "better" varies by metric.** Lower is better for memory and runtime; for
-  resolution, a lower `d_min` is better. There is no single sign convention for "B improved".
-- **Never summarise A vs B from a regression gradient alone.** A fit with a non-zero intercept can
-  cross the parity line inside the data range — B better on small datasets and worse on large ones —
-  and a single "B is faster by N%" asserts a direction the data does not support. `MemoryABChart`
-  and `CumulativeTimeTaken` therefore report **a win count and a median ratio**, which describe the
-  samples rather than extrapolating from the fit, with the fit expression kept as a secondary line.
-  Keep that shape for any new A/B summary.
+- **A is the current main DIALS build; B is the version under test.** The run folder name (e.g.
+  `xia2-irrmc-inflate-2700`) hints at B but doesn't identify it precisely.
+- **A is not a fixed baseline** — it tracks whatever main was at run time, not pinned per campaign
+  (run 2700's A: `3.dev.1493-gf324578a1`; run 5400's A: `3.dev.1488-g893c8dfee`). **Cross-run
+  comparisons are confounded** — a difference may be baseline drift, not an effect of B.
+  `MemoryRankChart` plots multiple runs on shared axes; `RunProvenance.jsx` (phase 3) warns when A
+  builds differ but doesn't stop the chart plotting confounded data. `CC_halfOverallChart`/
+  `MemoryABChart` use one parity scatter per run instead — own axes, so the confound doesn't apply.
+- **Exact builds extracted per variant** by `extract_xia2_build_info` (`xia2_extractor.py`) from
+  `xia2-debug.txt` — surfaced as `/runs/{run_id}`'s `builds` field.
+- **Missing data is not all equal.** A missing `B/` directory means the comparison *can't be made*
+  — significant. Empty lists/mismatched x/y arrays are noise, filtered silently by
+  `_clean_trace_data`. Don't conflate the two.
+- **Direction of "better" varies by metric** — lower is better for memory/runtime, lower `d_min`
+  is better for resolution. No single sign convention.
+- **Never summarise A vs B from a regression gradient alone** — a non-zero intercept can cross the
+  parity line inside the data range (B better on small datasets, worse on large ones).
+  `MemoryABChart`/`CumulativeTimeTaken` report **win count + median ratio** instead, fit kept as a
+  secondary line. Keep that shape for any new A/B summary.
 
 ## Known issues and planned work
 
-[TODO.md](TODO.md) is the categorised backlog — bugs, quick fixes, performance, architecture,
-product gaps, and the status of every unused symbol in the repo. It is the product of a full
-codebase review with findings verified against a running instance, so measurements in it are real
-rather than estimated. **[ARCHIVE.md](ARCHIVE.md) holds everything that reached `[x]`** — mirrors
-TODO.md's section numbers exactly, so "section 4" means the same section in both files. TODO.md
-stays the active backlog; ARCHIVE.md is where the detailed "why" behind a decision already made
-lives, kept verbatim rather than summarized. Move an item there once it's done, don't delete it.
+[TODO.md](TODO.md) is the active backlog — bugs, quick fixes, performance, architecture, product
+gaps, and disposition of every unused symbol. **[ARCHIVE.md](ARCHIVE.md)** holds everything `[x]`,
+mirroring TODO.md's section numbers exactly. Move an item there once done, don't delete it.
 
-Read TODO.md before proposing changes. In particular:
+Read TODO.md before proposing changes:
 
-- **Section 0 is the sequence, and the other sections are only the categories.** It orders every
-  item into phases 0–5 on the principle of *least wasted work* — which is not the same as
-  "bugs first". Some live bugs are deliberately left unfixed because the code holding them is
-  about to be deleted, and some cheap items are deliberately delayed because doing them before a
-  structural change means doing them twice. **Start from section 0, not from section 1**, and if
-  you are about to fix something out of phase order, check there first for why it is where it is.
-- **Section 6** records the disposition of every zero-caller symbol — which are planned work, which
-  are superseded, which are mid-migration. Check there before deleting anything that looks dead.
+- **Section 0 is the sequence** — orders items into phases 0–5 by least-wasted-work, not "bugs
+  first". Some bugs are deliberately left because the code holding them is about to be deleted;
+  some cheap items are delayed to avoid doing them twice. **Start from section 0.**
+- **Section 6** records the disposition of every zero-caller symbol. Check before deleting
+  anything dead-looking.
 - **Section 7** lists things that are deliberate and must not be "fixed".
-- **Section 8** is the agreed feature direction: the dashboard's primary job is *exploration* —
-  answering why B differs from A. It is ordered by dependency, and 8.1 (a per-sample cohort table
-  parsed from `xia2-summary.dat`) is the backbone every other item reads from. Build in that order;
-  new feature ideas should be checked against it before being started.
-- Several items are load-bearing for correctness. Phase 0 is done — the blocking event loop, the
-  mislabelled `MemoryABChart` axis and the gradient-only "B is faster by N%" headline are fixed.
-  Silent HTTP 200 on unknown runs is fixed (phase 2). The multi-sample collision bug is fixed
-  (phase 2b) — `/raw`/`/memory`/`/comparison`/`/cohort` are all sample-precise now. What remains:
-  silently dropped incomplete A/B pairs in the old endpoints (`/cohort` reports coverage correctly;
-  phase 4 is expected to move consumers onto it rather than fixing the old ones in place).
+- **Section 8** is the agreed feature direction — exploration (why B differs from A), ordered by
+  dependency; 8.1 (the cohort table) is the backbone everything else reads from.
+- Load-bearing fixes done: blocking event loop, mislabelled `MemoryABChart` axis, gradient-only
+  headline (phase 0); silent 200 on unknown run (phase 2); multi-sample collision (phase 2b —
+  `/raw`/`/memory`/`/comparison`/`/cohort` all sample-precise now). Remaining: old endpoints still
+  silently drop incomplete A/B pairs (`/cohort` reports coverage correctly; phase 4 is expected to
+  move consumers onto it).
 
-**Where the work is up to:** phases 0 through 3 are complete. The frontend plumbing and theme are
-documented below under *Data fetching*, *URL state* and *Frontend*. `GET /runs/{run_id}/cohort`
-(below, under *Backend pipeline*) is live: one row per `(dataset, sample)`, a backend-owned metric
-registry, coverage reported rather than filtered, and its memory/runtime join is exact per sample.
-`/runs/{run_id}` carries each run's A/B DIALS build (`builds`), surfaced by
-`src/components/RunProvenance.jsx` on both pages. **Phase 4 — the views — is underway.** 8.2
-(`MetricScatter`, the shared B-vs-A parity-scatter primitive), 8.3 (`CohortGrid`, the
-small-multiples cohort overview, at `/explore`), 8.5 (outlier points highlighted by colour in
-`MetricScatter`) and 8.4 (`DatasetDetailPage`, the per-sample detail view with its "what moved"
-strip, at `/explore/dataset/:run/*`) are all live. 8.8 (the workbench — a mode toggle on `/explore`
-unpinning `MetricScatter`'s axes) was also built, tried against a real run, and reverted in full
-when judged not useful — see ARCHIVE.md's 8.8 entry. **The next thing to do is moving
-`CC_halfOverallChart` off `/raw`** onto the cohort table (TODO section 0 and section 8).
-`MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and both stay — they first looked
-redundant with 8.3's per-metric panels, but 8.3/`/explore` is scoped to a single run at a time:
-`MemoryABChart` renders one parity scatter per selected run in a grid on one page load, and
-`MemoryRankChart` ranks peak memory across all selected runs on one shared chart. Both show every
-selected run at once, which the single-run-scoped `/explore` doesn't do.
+**Where the work is up to:** phases 0–3 complete. `/runs/{run_id}/cohort` is live (per-
+`(dataset, sample)` rows, backend-owned metric registry, coverage reported). `/runs/{run_id}`
+carries `builds`, shown by `RunProvenance.jsx`. **Phase 4 (the views) is underway:** 8.2
+`MetricScatter`, 8.3 `CohortGrid`/`/explore`, 8.5 outlier colouring, 8.4 `DatasetDetailPage` are
+live. 8.8 (the workbench) was built, tried, reverted — see ARCHIVE.md's 8.8 entry. **Next: move
+`CC_halfOverallChart` off `/raw`** onto the cohort table. `MemoryABChart`/`MemoryRankChart` are
+not superseded by 8.3 — `/explore` is single-run-scoped, while both of these show every selected
+run at once.
 
-Keep it current: when you fix something, tick it; when you find something new, add it to the right
-section **and** place it in section 0's sequence — an item with no phase is an item that will be
-done in the wrong order.
+Keep it current: tick fixes, and add new items to the right section **and** to section 0's
+sequence — an item with no phase is one that will be done out of order.
 
 ## Commands
 
-**`npm run dev` from the repo root is the way to run and test anything.** It starts both the Vite
-frontend (`:5173`) and the uvicorn backend (`:8000`) together via `concurrently`, which is the only
-configuration in which the dashboard actually works end to end. Use this by default rather than
-starting either half on its own.
+**`npm run dev` from the repo root** starts Vite (`:5173`) + uvicorn (`:8000`) together via
+`concurrently` — the only configuration where the dashboard works end to end. Use this by default.
 
 ```bash
 npm run dev
 ```
 
-First-time setup (creates the venv, installs Python + both npm dependency sets, then runs
-`npm run dev` itself):
+First-time setup (creates the venv, installs deps, then runs `npm run dev`):
 
 ```bash
 ./setup.sh
@@ -126,45 +94,41 @@ npm --prefix frontend run lint
 npm --prefix frontend run build
 ```
 
-Single-service commands, for when you specifically need to isolate one half. The backend must run
-from `backend/` — `config.py` reads `.env` and `FileSystemRunRepository` uses the relative path
-`storage/processed_runs`, both of which break from another cwd:
+Single-service commands, for isolating one half — the backend must run from `backend/`
+(`config.py`/`FileSystemRunRepository` use paths relative to it):
 
 ```bash
 cd backend && venv/bin/python3 -m uvicorn main:app --reload
 npm --prefix frontend run dev
 ```
 
-There is effectively no test suite. `backend/test_cohort.py` is the one exception — a contract test
-on `/cohort`'s shape, run with `cd backend && venv/bin/python3 -m pytest`. `test.py` at the repo
-root is a gitignored scratch file, not a test runner. Everywhere else, verification means running
-the dashboard and looking at it.
+There is effectively no test suite. `backend/test_cohort.py` is the exception — a contract test on
+`/cohort`'s shape (`cd backend && venv/bin/python3 -m pytest`). `test.py` at the repo root is a
+gitignored scratch file, not a test runner. Otherwise, verification means running the dashboard.
 
 ## Configuration
 
-`backend/.env` (copied from `backend/.env.copy`, gitignored) sets:
+`backend/.env` (copied from `.env.copy`, gitignored):
 
-- `WORKSPACE_DIR` — absolute path to the xia2 run data. Read-only as far as this app is concerned.
-- `WORKSPACE_TYPE` — `local` is the only implemented backend; `get_workspace()` returns `None` for
-  `ssh`, which is a declared-but-unbuilt path.
-- `FRONTEND_URL` — the single origin allowed by CORS. Changing the Vite port requires changing this too.
+- `WORKSPACE_DIR` — absolute path to the xia2 run data. Read-only.
+- `WORKSPACE_TYPE` — `local` is the only implemented backend; `ssh` is declared but unbuilt
+  (`get_workspace()` returns `None`).
+- `FRONTEND_URL` — the CORS origin. Must match the Vite port.
 
-`frontend/.env` (copied from `frontend/.env.copy`, gitignored) sets:
+`frontend/.env` (copied from `.env.copy`, gitignored):
 
-- `VITE_API_URL` — where the frontend looks for the backend. Optional locally: `src/api/client.js`
-  falls back to `http://localhost:8000`, which is where `npm run dev` puts uvicorn. Vite inlines it
-  at build time, so changing it needs a restart, not a reload.
+- `VITE_API_URL` — where the frontend looks for the backend. Optional locally (`src/api/client.js`
+  falls back to `localhost:8000`). Inlined at build time — changing it needs a restart, not a
+  reload.
 
-**Deploying needs both halves configured, and they point at each other:** `VITE_API_URL` at the
-backend, `FRONTEND_URL` at wherever the frontend is served. Setting only one produces a CORS
-failure that surfaces as `ApiError` with status 0.
+**Deploying needs both set and pointing at each other** — a mismatch surfaces as `ApiError` with
+status 0.
 
 ## Two separate data roots
 
-Do not confuse these:
-
 - **`WORKSPACE_DIR`** — the source xia2 output. Large, external, never written to.
-- **`backend/storage/processed_runs/`** — the app's own JSON cache. Gitignored, created on startup.
+- **`backend/storage/processed_runs/`** — the app's own JSON cache. Gitignored, created on
+  startup.
 
 ## Workspace layout the extractors assume
 
@@ -184,93 +148,81 @@ Do not confuse these:
             ...
 ```
 
-Run directories are large. When inspecting the workspace, pick one run rather than walking all of them.
+Run directories are large — inspect one run at a time, don't walk all of them.
 
 Two consequences worth internalising:
 
 1. **A/B is encoded two different ways** — by filename suffix for the resolution JSONs, by parent
    directory for the per-variant instrumentation files. Extractors handle each differently
-   (`_apache_series_builder` switches on filename; `mprofile`/timing/memory extractors read
+   (`_apache_series_builder` switches on filename; mprofile/timing/memory extractors read
    `f.parent.name`).
-2. **`_sample_key()` (`xia2_extractor.py`, renamed from `_top_dir` in TODO phase 2b) returns
-   `"{parts[1]}/{parts[3]}"` — the composite `dataset/sample` id, not just the dataset.** This works
-   only because `LocalWorkspace.list_files()` returns paths relative to the *workspace root*, so
-   `parts[0]` is always the run id, `parts[1]` the dataset, `parts[3]` the sample (`parts[2]` is the
-   fixed `data` directory). Changing what `list_files` returns silently rekeys every result dict.
-   **`dataset` is a composite id everywhere in the backend, not just here** — `extract_xia2_datasets`
-   returns `"dataset/sample"` strings (always, even for the ~226 single-sample datasets, so nothing
-   downstream special-cases the format), and every route/function that takes a `dataset` parameter
-   treats it as this opaque composite string end to end, splitting it only where it actually touches
-   the filesystem (`_dataset_sample_path`). Routes that take one declare it `{dataset:path}`, not
-   `{dataset}`, so the embedded `/` survives FastAPI's routing — verified this against a live
-   instance before relying on it, including that a route with a fixed suffix after `{dataset:path}`
-   (e.g. `.../raw`) still matches correctly. **One route-ordering trap this created:** where two
-   routes share a `{dataset:path}` prefix and one is a strict suffix of the other's path shape
+2. **`_sample_key()` (renamed from `_top_dir`)** returns `"{parts[1]}/{parts[3]}"` — the composite
+   `dataset/sample` id, not just the dataset. Works only because `LocalWorkspace.list_files()`
+   returns paths relative to the workspace root. Changing what `list_files` returns silently
+   rekeys every result dict. **`dataset` is this composite id everywhere in the backend** —
+   `extract_xia2_datasets` always returns `"dataset/sample"` strings, even for single-sample
+   datasets, and every route/function treats it as an opaque string, splitting only at the
+   filesystem boundary (`_dataset_sample_path`). Routes declare it `{dataset:path}` so the
+   embedded `/` survives routing — verified against a live instance, including with a fixed suffix
+   after it (e.g. `.../raw`). **One route-ordering trap this created:** where two routes share a
+   `{dataset:path}` prefix and one is a strict suffix-extension of the other
    (`/memory/{dataset:path}` vs `/memory/{dataset:path}/events`), the bare one must be declared
-   *after* the more specific one, or Starlette's greedy `:path` match on the bare route swallows the
-   `/events` requests first. `routers/runs.py` relies on this ordering — don't reorder those two
-   routes without re-verifying.
+   *after* the more specific one, or Starlette's greedy `:path` match swallows the specific
+   route's requests. `routers/runs.py` relies on this ordering — don't reorder without
+   re-verifying.
 
 ## Backend pipeline
 
 `routers/runs.py` → `runs/service.py` (`RunService`) → `runs/xia2_extractor.py` → `runs/xia2_processor.py`
 
-- **Router** is a thin HTTP surface; a module-level singleton `RunService` is built at import time,
-  so the workspace is resolved once at startup. **The route handlers are deliberately plain `def`,
-  not `async def`.** They call synchronous, IO-heavy extractors, so FastAPI must be allowed to run
-  them in its threadpool; making one `async` puts that work back on the event loop and stalls every
-  other request (measured: `/ping` 3 ms → 1107 ms while one `/raw` was in flight). Do not add
-  `async` to a handler unless its body is genuinely awaitable throughout. Every route calls
-  `_ensure_run_exists(run_id)` first — a missing run 404s instead of the old silent `200 []`.
-- **Extractor** does all workspace I/O and file parsing. `_extract_json_files` (backs `/raw`,
+- **Router**: thin HTTP surface; module-level `RunService` singleton built at import time.
+  **Route handlers are deliberately plain `def`, not `async def`** — they call synchronous,
+  IO-heavy extractors, so FastAPI must run them in its threadpool; making one `async` puts that
+  work back on the event loop and stalls every other request (measured: `/ping` 3ms → 1107ms while
+  one `/raw` was in flight). Don't add `async` to a handler unless its body is genuinely awaitable
+  throughout. Every route calls `_ensure_run_exists(run_id)` first — a missing run 404s instead of
+  silent `200 []`.
+- **Extractor**: does all workspace I/O and file parsing. `_extract_json_files` (backs `/raw`,
   `/comparison`) is the one extractor still walking `list_files()` and filtering by an exact
-  filename set. Everything else that needs a specific sample's file constructs the path directly —
+  filename set. Everything else constructs the path directly —
   `<run_id>/<dataset>/data/<sample>/{A,B}/<filename>` — rather than walking and filtering:
-  `extract_xia2_summary` (needs to know *which* sample a file belongs to as it reads it),
-  `extract_xia2_timing` and `_extract_memory_files` (backing `/cumulative` and `/memory`, rewritten
-  in TODO section 3 after profiling showed the `rglob` walk, not the file parsing, was the entire
-  cost — 1.3–1.65 s down to well under 0.2 s each). Keep this pattern for anything new that needs
-  per-sample identity or gets measurably slow at `list_files`' expense. `_extract_json_files` is
-  deliberately left alone — not a measured bottleneck. `/raw` (the whole-run route) has zero
-  frontend consumers as of `CC_halfOverallChart` moving onto `GET /runs/{run_id}/cc_half`, but stays
-  deliberately as a dev/test route rather than being retired (TODO section 7) — do not delete it,
+  `extract_xia2_summary`, `extract_xia2_timing`, `_extract_memory_files` (backing `/cumulative`
+  and `/memory`, rewritten in TODO section 3 after profiling showed the `rglob` walk was the
+  entire cost — 1.3–1.65s down to well under 0.2s each). Keep this pattern for anything new that
+  needs per-sample identity or gets measurably slow at `list_files`'s expense.
+  `_extract_json_files` is deliberately left alone — not a measured bottleneck. `/raw` has zero
+  frontend consumers now but stays as a dev/test route (TODO section 7) — do not delete it,
   `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
-- **Processor** reshapes into ECharts-ready series. `build_cohort` (below) is the one processor
-  function that isn't reshaping for a chart — it's a join.
-- **Storage** (`FileSystemRunRepository`) is a JSON cache keyed `<run_id>/<resource>`. `save()` is
-  called but the corresponding `load()` short-circuit in `get_xia2_raw` is commented out, so
-  requests currently re-extract from disk every time. This is why the timing middleware in
-  `main.py` prints per-request durations. **This is deliberate and deferred — leave it commented
-  out.** Do not re-enable the cache as a drive-by fix.
+- **Processor**: reshapes into ECharts-ready series. `build_cohort` is the one processor function
+  that isn't reshaping for a chart — it's a join.
+- **Storage** (`FileSystemRunRepository`): a JSON cache keyed `<run_id>/<resource>`. `save()` is
+  called but the `load()` short-circuit in `get_xia2_raw` is commented out, so requests re-extract
+  from disk every time (hence the timing middleware in `main.py`). **This is deliberate and
+  deferred — leave it commented out.** Do not re-enable the cache as a drive-by fix.
 
 ### The series contract
 
-`_apache_series_builder` emits `{"name": ..., "data": [[x, y], ...]}` and prefixes names with
-`"A - "` / `"B - "` based on the source filename. `DatasetChart` locates traces by substring match
-on that name (`"fit"`, to pick out fitted curves within `cc_half`) — **renaming in the builder
-breaks that chart silently**, no error, just an empty plot. Grep the frontend for the trace name
-before changing it. `CC_halfOverallChart` used to do the same (`"A - d_min"`/`"B - d_min"`) against
-`/raw`, but no longer goes through `_apache_series_builder` at all — see `GET /runs/{run_id}/cc_half`
-below.
+`_apache_series_builder` emits `{"name": ..., "data": [[x, y], ...]}`, prefixing names with
+`"A - "`/`"B - "`. `DatasetChart` locates traces by substring match on that name (`"fit"`, for
+`cc_half`'s fitted curve) — **renaming in the builder breaks that chart silently**, no error, just
+an empty plot. Grep the frontend for the trace name before changing it. `CC_halfOverallChart` no
+longer goes through `_apache_series_builder` at all — see below.
 
 ### `GET /runs/{run_id}/cc_half`
 
 Not an interpolation despite the route it replaced (`/raw/interpolated`) being named that way —
 `dials.estimate_resolution-{A,B}.json`'s `cc_half.data` already carries the CC½-threshold crossing
-DIALS itself computed, as a marker line named `"d_min = ... Å"` whose x-coordinate (inverse-square-d
-units) *is* the value. `extract_xia2_cc_half` reads that directly per `(dataset, sample)` via
-`_dataset_sample_path`, the same pattern as every other per-sample extractor, rather than
-downloading and grepping the whole `/raw` payload client-side the way `CC_halfOverallChart` used to.
-Response shape matches `/cumulative`: `{"A": [[dataset, value], ...], "B": [...]}`. Considered
-folding this into `/cohort` as a 12th registry metric instead of a standalone endpoint — kept
-separate since it's a different DIALS computation (`dials.estimate_resolution`) from the
-`xia2-summary.dat`-derived registry, and `CC_halfOverallChart`'s per-run overview shape doesn't fit
-the per-`(dataset, sample)` cohort row shape anyway.
+DIALS itself computed, as a marker line named `"d_min = ... Å"` whose x-coordinate (inverse-
+square-d units) *is* the value. `extract_xia2_cc_half` reads that directly per `(dataset, sample)`
+via `_dataset_sample_path`, the same pattern as every other per-sample extractor. Response shape
+matches `/cumulative`: `{"A": [[dataset, value], ...], "B": [...]}`. Kept separate from `/cohort`
+— it's a different DIALS computation (`dials.estimate_resolution`) from the
+`xia2-summary.dat`-derived registry, and doesn't fit the per-`(dataset, sample)` cohort row shape.
 
 ### The cohort table
 
-`GET /runs/{run_id}/cohort` — the backbone every phase-4 view is meant to read, per TODO 8.1. One
-row per `(dataset, sample)`:
+`GET /runs/{run_id}/cohort` — the backbone every phase-4 view is meant to read. One row per
+`(dataset, sample)`:
 
 ```
 {
@@ -289,128 +241,118 @@ row per `(dataset, sample)`:
 }
 ```
 
-**`status`/`coverage` are the coverage-not-filtering rule from the domain conventions made
-concrete.** A missing side is a row with `null` for that variant and a `status`, not an absent row —
-follow this shape for any new aggregate endpoint rather than dropping incomplete pairs.
+**`status`/`coverage` are the coverage-not-filtering rule made concrete.** A missing side is a row
+with `null` for that variant and a `status`, not an absent row — follow this shape for any new
+aggregate endpoint rather than dropping incomplete pairs.
 
 **The metric registry (`backend/runs/metrics.py`) is the one place `better` (`"higher"`/`"lower"`/
-`None`) is decided**, per the domain conventions' "no single sign convention" rule. It's served in
-every `/cohort` response rather than duplicated frontend-side. `None` is a real, intentional value —
+`None`) is decided**, per the "no single sign convention" rule. It's served in every `/cohort`
+response rather than duplicated frontend-side. `None` is a real, intentional value —
 `low_resolution_limit` reflects data-collection geometry, not something either DIALS build makes
-better or worse; don't fill in a guess to make every metric have a direction.
+better or worse — don't fill in a guess.
 
-**Peak memory and cumulative runtime are joined in from `extract_xia2_memory`/
-`extract_xia2_cumulative_timing`**, keyed by the same composite `"dataset/sample"` id as everything
-else since phase 2b — exact per sample, including for the 5 datasets with more than one sample.
+**Peak memory and cumulative runtime are joined in** from `extract_xia2_memory`/
+`extract_xia2_cumulative_timing`, keyed by the same composite `"dataset/sample"` id — exact per
+sample, including for the 5 multi-sample datasets.
 
-**`routers/models.py` (`CohortResponse` etc.) is the first Pydantic response model in the repo.**
-`RunMetadata` (`/runs/{run_id}`) and `CCHalfResponse` (`/cc_half`) followed once those routes
-existed. The older routes (`/raw`, `/memory`, `/comparison`, `/info`) stay untyped dicts on
-purpose — see TODO section 4.
+**`routers/models.py` (`CohortResponse` etc.)** is the first Pydantic response model in the repo.
+`RunMetadata` (`/runs/{run_id}`) and `CCHalfResponse` (`/cc_half`) followed. The older routes
+(`/raw`, `/memory`, `/comparison`, `/info`) stay untyped dicts on purpose — see TODO section 4.
 
 ## Frontend
 
 React 19 + Vite + MUI, charts via `echarts-for-react` — ECharts is the only charting library.
-`echarts-stat` (the regression lines in `MemoryABChart` and `CumulativeTimeTaken`) lives in
-`frontend/package.json` alongside everything else; the root `package.json` holds only
-`concurrently`. Keep frontend dependencies in `frontend/` — declaring one at the root makes it
-resolve by Node walking up the tree, which works locally and fails for anyone who installs only
-`frontend/`.
+`echarts-stat` (regression lines in `MemoryABChart`/`CumulativeTimeTaken`) lives in
+`frontend/package.json`; the root `package.json` holds only `concurrently`. **Keep frontend
+dependencies in `frontend/`** — declaring one at the root resolves via Node walking up the tree,
+which works locally and fails for anyone who installs only `frontend/`.
 
 Routing in `src/App.jsx`: `/` → `DataMemoryPage` (memory + timings), `/datasets` → `DataSetsPage`
-(data quality), `/explore` → `ExplorePage` (the cohort overview, TODO 8.3), `/explore/dataset/:run/*`
-→ `DatasetDetailPage` (the per-sample detail view, TODO 8.4). All four render inside
-`DashboardLayout`.
+(data quality), `/explore` → `ExplorePage` (cohort overview), `/explore/dataset/:run/*` →
+`DatasetDetailPage` (per-sample detail view). All render inside `DashboardLayout`.
 
-**`explore/dataset/:run/*` is a splat route** — the composite `dataset/sample` id (always contains a
-literal `/`, per the workspace-layout note above) is captured by the trailing `*`, not a named
-param, the frontend analogue of the backend's `{dataset:path}` fix from phase 2b.
-`DatasetDetailPage` reads it via `useParams()["*"]`. It's reachable two ways, both funnelled through
-one `goToDataset(navigate, run, dataset)` helper in `src/navigation.js`: a `DatasetSelector` on
-`ExplorePage`, and a new `onPointClick` prop on `MetricScatter` (wired through `CohortGrid`).
-`goToDataset` lives in its own module rather than being colocated in `ExplorePage.jsx` — a page file
-exporting anything besides its default component trips this repo's
+**`explore/dataset/:run/*` is a splat route** — the composite `dataset/sample` id (always contains
+a literal `/`) is captured by the trailing `*`, the frontend analogue of the backend's
+`{dataset:path}`. `DatasetDetailPage` reads it via `useParams()["*"]`. Reachable two ways, both
+through one `goToDataset(navigate, run, dataset)` helper in `src/navigation.js`: a
+`DatasetSelector` on `ExplorePage`, and an `onPointClick` prop on `MetricScatter` (wired through
+`CohortGrid`). `goToDataset` lives in its own module rather than in `ExplorePage.jsx` — a page
+file exporting anything besides its default component trips this repo's
 `react-refresh/only-export-components` lint rule.
 
-`src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback.
-It is used at two levels: around each route in `App.jsx`, and around each chart in the pages.
-**Wrap new charts in it** — one throwing component used to blank the whole page, and with
-multi-second responses a blank page is indistinguishable from a slow one. Pass `resetKeys` (the
-selected runs, or the run id) so changing selection retries instead of leaving the error stuck.
+`src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback
+— used per-route (`App.jsx`) and per-chart. **Wrap new charts in it** — one throwing component
+used to blank the whole page, and with multi-second responses a blank page is indistinguishable
+from a slow one. Pass `resetKeys` (selected runs, or the run id) so changing selection retries
+instead of leaving the error stuck.
 
-**It only catches render errors.** Fetch failures reach it because `useApi` forwards them with
+**It only catches render errors.** Fetch failures reach it because `useApi` forwards them via
 `useErrorBoundary().showBoundary()`, not because React catches them. Anything that throws
 asynchronously outside those hooks still needs forwarding by hand.
 
-**`MetricScatter` (`/explore`, TODO 8.2) uses A/B differently from every other chart here.**
-Everywhere else, A and B are two separate series, each drawn in its own fixed colour
-(`tokens.variant.A`/`.B` — see section 0 phase 1a in TODO.md). `MetricScatter` instead puts A on
-the x-axis and B on the y-axis: one point is one sample, carrying both an A value and a B value, so
-there is no per-variant series to colour. Only the axis *names* use `tokens.variant.A`/`.B`; the
-scatter points are a plain single colour. A future chart that treats a `MetricScatter` point as
-"the A series" or "the B series" and tries to colour it from `tokens.variant` is misapplying a
-convention built for a different chart shape.
+**`MetricScatter` uses A/B differently from every other chart here.** Elsewhere, A/B are two
+separate series each in a fixed colour (`tokens.variant.A`/`.B`). `MetricScatter` puts A on the
+x-axis and B on the y-axis: one point is one sample carrying both an A and a B value, so there is
+no per-variant series to colour. Only the axis *names* use the tokens; the scatter points are a
+plain single colour. A chart that treats a `MetricScatter` point as "the A series" and colours it
+from `tokens.variant` is misapplying a convention built for a different chart shape.
 
 ## Data fetching
 
 **One idiom. Do not add a bare `fetch` anywhere.**
 
-- `src/api/client.js` — `apiGet(path, {signal})`. Base URL from `import.meta.env.VITE_API_URL`,
-  falling back to `http://localhost:8000`; this is the only place that literal appears. Throws
-  `ApiError` with a `status` field, where **status 0 means a network-level failure** (backend down,
-  CORS) as opposed to an HTTP error. Aborts rethrow the original `AbortError` instead, so callers
-  can drop them without unwrapping.
+- `src/api/client.js` — `apiGet(path, {signal})`. Base URL from `VITE_API_URL`, falling back to
+  `http://localhost:8000` (the only place that literal appears). Throws `ApiError` with a
+  `status` field — **0 means a network-level failure** (backend down, CORS), not an HTTP error.
+  Aborts rethrow the original `AbortError` unwrapped.
 - `src/hooks/useApi.js` — `useApi(path)` for one resource, `useApiAll([{key, path}])` for a keyed
-  set. Both abort on input change and unmount. Pass `path: null` to skip a fetch whose input is not
-  chosen yet rather than calling the hook conditionally.
+  set. Both abort on input change and unmount. Pass `path: null` to skip a fetch whose input isn't
+  chosen yet, rather than calling the hook conditionally.
 
 Two things about these that are easy to break:
 
-1. **They escalate failures to the nearest `ErrorBoundary` by default.** So the fetch must not sit
-   in the same component as the control that would let a user recover — a page that fetches beside
-   its own run selector loses the selector when the backend is down. `DataMemoryPage` and
-   `DataSetsPage` are split for exactly this reason: the selector stays in the page, the fetching
-   lives in `MemoryPanels` / `CC_halfOverallPanel` inside a boundary. Keep that shape when adding a
-   view, or pass `{throwOnError: false}` and handle it inline.
-2. **`useErrorBoundary()` throws if there is no boundary above the caller**, so every consumer of
-   these hooks must render inside one. `App.jsx` wraps both routes, which covers the tree today —
-   a component mounted outside the router would not be covered.
+1. **They escalate failures to the nearest `ErrorBoundary` by default**, so the fetch must not sit
+   in the same component as the control that would let a user recover — a page fetching beside its
+   own run selector loses the selector when the backend is down. `DataMemoryPage`/`DataSetsPage`
+   are split for exactly this reason. Keep that shape, or pass `{throwOnError: false}` and handle
+   it inline.
+2. **`useErrorBoundary()` throws if there is no boundary above the caller**, so every consumer must
+   render inside one. `App.jsx` covers both routes today.
 
-`useApiAll` caches by path for the component's lifetime and returns exactly the keys you asked for,
-so deselecting a run drops it from the result without discarding its data and reselecting it does
-not refetch. It keys its effect on `JSON.stringify(requests)`, so building the array inline each
-render is fine and expected. `data` is populated from cache before a newly-added key resolves, so a
-consumer should render from `data` unconditionally and use `requests` minus `Object.keys(data)` to
-show a partial loading state — gating the whole render on the aggregate `loading` boolean blanks
-already-loaded keys every time a new one is added. `MemoryPanels` and `CC_halfOverallPanel` do this.
+`useApiAll` caches by path for the component's lifetime and returns exactly the keys asked for —
+deselecting a run drops it without discarding its data, and reselecting doesn't refetch. It keys
+its effect on `JSON.stringify(requests)`, so building the array inline each render is fine. `data`
+is populated from cache before a newly-added key resolves, so a consumer should render from `data`
+unconditionally and use `requests` minus `Object.keys(data)` for a partial loading state — gating
+on the aggregate `loading` boolean blanks already-loaded keys every time a new one is added.
+`MemoryPanels`/`CC_halfOverallPanel` do this.
 
 The `data-quality/use*.js` hooks are three-line named wrappers over `useApi` — a naming
 convenience, not a second idiom.
 
 ## URL state
 
-`src/hooks/useUrlState.js` — `useUrlParam` / `useUrlParamList` / `useUrlParamMap` over
-react-router's `useSearchParams`. Writes use `replace`, so a multi-select does not fill the
-history. `useUrlParamMap` is for a selection keyed by a dynamic id set (e.g. one dataset choice per
-selected run) that the other two don't cover; like `useUrlParamList` its setter takes the full next
-value rather than a `useState`-style updater.
+`src/hooks/useUrlState.js` — `useUrlParam`/`useUrlParamList`/`useUrlParamMap` over react-router's
+`useSearchParams`. Writes use `replace`, so a multi-select doesn't fill the history.
+`useUrlParamMap` is for a selection keyed by a dynamic id set (e.g. one dataset choice per
+selected run); like `useUrlParamList`, its setter takes the full next value rather than a
+`useState`-style updater.
 
 Both pages read selected runs from the **same `runs` parameter**, so a link carries a selection
-across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice and sync toggle
-(`${metric}_ds` as a map, `${metric}_sync`, so the "Raw" and "Comparison" panels on `DataSetsPage`
-don't collide), and `MemoryProfilerPlot`'s dataset choice (`ds_${run}`). `DatasetChart`'s trace
-selection is also on the URL: `trace_${urlKey}`, `urlKey` supplied by the caller (`RunPanel` passes
-`${metric}_${runId}`; `DatasetDetailPage` passes a literal `"raw"`/`"comparison"`) since more than
-one `DatasetChart` instance can be on screen at once and its two call sites don't share identifying
-props.
-`/explore` (`ExplorePage.jsx`) deliberately does **not** share `runs` — it holds its own single-run
-`run` param instead, because reusing `runs` there let changing the dropdown silently truncate the
-other pages' multi-run selection down to one.
+across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice/sync toggle
+(`${metric}_ds` map, `${metric}_sync`), `MemoryProfilerPlot`'s dataset (`ds_${run}`), and
+`DatasetChart`'s trace selection (`trace_${urlKey}`, `urlKey` supplied by the caller — `RunPanel`
+passes `${metric}_${runId}`, `DatasetDetailPage` passes `"raw"`/`"comparison"` — since more than
+one `DatasetChart` instance can be on screen at once and its two call sites don't share
+identifying props).
+
+`/explore` deliberately does **not** share `runs` — it holds its own single-run `run` param,
+because reusing `runs` there let changing the dropdown silently truncate the other pages'
+multi-run selection down to one.
 
 ## Chart chrome
 
 `src/theme/chartChrome.js` exports `STANDARD_DATA_ZOOM` and `STANDARD_LEGEND` — the only two
-ECharts option fragments that turned out to be byte-identical across charts when checked directly
-(dataZoom in six charts, legend placement in three). Grid margins and tooltip formatters differ per
-chart and stay inline; there was no larger shared shape to extract into a factory. Chart heights
-come from `tokens.chart.height.*` (`sparkline`/`panel`/`full`/`tall`) rather than literals.
+ECharts option fragments byte-identical across charts (dataZoom in six, legend placement in
+three). Grid margins and tooltip formatters differ per chart and stay inline. Chart heights come
+from `tokens.chart.height.*` (`sparkline`/`panel`/`full`/`tall`) rather than literals.
