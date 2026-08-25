@@ -51,11 +51,11 @@ export default function DatasetDetailPage() {
             )}
 
             <ErrorBoundary label="CC½ curve" resetKeys={[run, dataset]}>
-                <DatasetChart data={rawData} />
+                <DatasetChart data={rawData} urlKey="raw" />
             </ErrorBoundary>
 
             <ErrorBoundary label="Comparison series" resetKeys={[run, dataset]}>
-                <DatasetChart data={comparisonData} />
+                <DatasetChart data={comparisonData} urlKey="comparison" />
             </ErrorBoundary>
 
             <ErrorBoundary label="Memory profile" resetKeys={[run, dataset]}>

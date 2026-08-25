@@ -933,6 +933,17 @@ cost far less than the first. See TODO.md's section 8 for 8.7 (still open) and t
       colour replaced text — clutter was the reason to keep N small, and a colour dot doesn't clutter
       the way a label would.
 
+### 8.7 URL-encoded state. Done
+
+- [x] **Make every view addressable.** Mechanism built in phase 1a (`src/hooks/useUrlState.js`).
+      Adopted incrementally as each view was touched rather than as one sweep: selected runs,
+      `RunMetricPanel`'s per-run dataset choice/sync toggle, and `MemoryProfilerPlot`'s dataset all
+      moved onto the URL earlier. The last piece, `DatasetChart`'s trace selection, moved last —
+      `useState("")` → `useUrlParam(`trace_${urlKey}`)`, where `urlKey` is supplied by the caller
+      (`RunPanel` passes `` `${metric}_${runId}` ``; `DatasetDetailPage` passes literal `"raw"` /
+      `"comparison"`) since `DatasetChart` has two call sites with different natural identifying
+      props and more than one instance can be on screen at once.
+
 ### 8.8 The workbench. Tried, reverted
 
 - [x] **Free axis pickers on X and Y over the full metric vocabulary** (A, B, Δ and %Δ variants).

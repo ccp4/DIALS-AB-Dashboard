@@ -159,33 +159,18 @@ resolved — see [ARCHIVE.md](ARCHIVE.md) section 4.
 Provenance extraction and the A-not-a-fixed-baseline warning are resolved — see
 [ARCHIVE.md](ARCHIVE.md) section 5.
 
-- [ ] **Incomplete A/B pairs are silently dropped.** The distinction that matters is *relevance*,
-      not "failure", and there are two clearly different cases that currently get identical
-      treatment:
+- [ ] **Incomplete A/B pairs are silently dropped in `/memory`.** A missing `B/` directory means
+      the comparison *cannot be made* for that dataset and must be reported — the extractor just
+      omits the key, and the frontend's `.filter(Number.isFinite)` (`MemoryABChart`,
+      `MemoryRankChart`, `MemoryOverlayChart`, `SingleMemoryPlot`) discards it without a trace, so a
+      regression line looks healthy over a silently shrunken sample. (Empty lists/mismatched arrays
+      are a different, correctly-filtered case — `_clean_trace_data` needs no change.)
 
-      - **Structurally absent** — a missing `B/` directory means the comparison *cannot be made*
-        for that dataset. This must be reported. **Currently it is not:** the extractor simply
-        omits the key, and the frontend's `.filter(Number.isFinite)` (`MemoryABChart`, `MemoryRankChart`,
-        `MemoryOverlayChart` 16, `SingleMemoryPlot` 12) discards it without a trace, so the
-        regression line looks healthy over a silently shrunken sample.
-      - **Noise within a file** — empty lists and mismatched `x`/`y` arrays. Irrelevant; filter
-        silently. `_clean_trace_data` already does this and is **correct as-is** — no change needed.
-
-      The bug is that both land in the same bucket. Per the project's principle — *the backend
-      prepares, the frontend displays* — the count and identity of incomplete pairs should come
-      from the extractor/processor. [sanitiseMemoryData.js](frontend/src/utils/sanitiseMemoryData.js)
-      is worth keeping as a **specification of the output shape** (per-dataset reason plus a
-      `total/valid/invalid` summary) even though the frontend implementation is retired — capture
-      that shape backend-side before deleting it.
-
-      Minimum useful version: every response reports `n` datasets compared out of `N` present, and
-      the UI states it. A silently shrinking denominator is the worst outcome for a comparison tool.
-
-      **Done for the new path, not the old one.** `/cohort` (phase 2, section 0) reports exactly
-      this shape — `CohortRow.status` (`"complete"`/`"missing_a"`/`"missing_b"`) plus
-      `CohortCoverage`'s `total`/`complete`/`missing_a`/`missing_b` — and phase 4's views will read
-      it. `/memory`/`/raw` and the charts named above are untouched and still silently filter; they
-      are superseded by 8.3 per TODO section 0 phase 4, so fixing them separately would be waste.
+      **Done for `/cohort`** (`CohortRow.status`/`CohortCoverage`, phase 2). **Not done for
+      `/memory`, and this is a real gap, not waste** — `MemoryABChart`/`MemoryRankChart` are staying
+      permanently (section 0 phase 4's standing note), not superseded by 8.3 as this bullet
+      originally assumed. Minimum fix: have `/memory` report a coverage count the same shape as
+      `/cohort`'s.
 
 - [ ] **No "so what?" layer.** No landing view answering *which datasets regressed, by how much,
       ranked*. Users must select runs and eyeball charts. This is the difference between a plotting
@@ -245,23 +230,9 @@ a single dataset. Everything below follows from those two. This section is addit
 not a replacement.
 
 **The spine: a single cohort table underpins every view.** 8.1 blocked everything else; 8.2 was the
-shared primitive that 8.3, 8.5 and 8.8 were configurations of. **8.1 through 8.5, and 8.8, are all
-done** — see [ARCHIVE.md](ARCHIVE.md) section 8 for each item's full write-up. One item remains
-open:
-
-### 8.7 URL-encoded state
-
-- [ ] **Make every view addressable.** Selected runs, chosen axes and active dataset currently live
-      in `useState`, so a finding cannot be sent to a colleague. Section 5
-      lists this as a product gap; in an exploration tool it is more than that — it is what turns
-      solitary exploration into a shared conversation. Small, and best done early, because
-      retrofitting URL state across views built without it is much more work than building with it.
-
-      **Mechanism built in phase 1a** (`src/hooks/useUrlState.js`) and adopted for selected runs on
-      both pages. Still on `useState` and still to move: `RunMetricPanel`'s per-run dataset choice
-      and sync toggle, `MemoryProfilerPlot`'s dataset, `RawDataChart`/`DatasetChart`'s trace
-      selection. Do each as its view is touched in 1b and phase 4 rather than as a sweep. Note both
-      pages use the parameter name `runs`, so a link carries selection across the two views.
+shared primitive that 8.3, 8.5 and 8.8 were configurations of. **8.1 through 8.5, 8.7 and 8.8 are
+all done** — see [ARCHIVE.md](ARCHIVE.md) section 8 for each item's full write-up. Nothing remains
+open in this section.
 
 ### Deferred — considered and not now
 

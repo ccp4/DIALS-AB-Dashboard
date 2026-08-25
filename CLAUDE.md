@@ -398,8 +398,11 @@ value rather than a `useState`-style updater.
 Both pages read selected runs from the **same `runs` parameter**, so a link carries a selection
 across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice and sync toggle
 (`${metric}_ds` as a map, `${metric}_sync`, so the "Raw" and "Comparison" panels on `DataSetsPage`
-don't collide), and `MemoryProfilerPlot`'s dataset choice (`ds_${run}`). Still `useState`: trace
-selection within `DatasetChart`, and the axis pickers phase 4's views will introduce (TODO 8.7).
+don't collide), and `MemoryProfilerPlot`'s dataset choice (`ds_${run}`). `DatasetChart`'s trace
+selection is also on the URL: `trace_${urlKey}`, `urlKey` supplied by the caller (`RunPanel` passes
+`${metric}_${runId}`; `DatasetDetailPage` passes a literal `"raw"`/`"comparison"`) since more than
+one `DatasetChart` instance can be on screen at once and its two call sites don't share identifying
+props.
 `/explore` (`ExplorePage.jsx`) deliberately does **not** share `runs` — it holds its own single-run
 `run` param instead, because reusing `runs` there let changing the dropdown silently truncate the
 other pages' multi-run selection down to one.

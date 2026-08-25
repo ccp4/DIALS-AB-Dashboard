@@ -1,14 +1,20 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
 import { variantOf, variantSeriesStyle } from "../../theme/variant";
+import { useUrlParam } from "../../hooks/useUrlState";
 
-function DatasetChart({ data }) {
+/**
+ * @param {string} urlKey Makes the trace-selection URL param unique when
+ *        more than one DatasetChart is on screen at once (e.g. one per
+ *        selected run, or raw vs comparison).
+ */
+function DatasetChart({ data, urlKey }) {
   const dataset = Array.isArray(data) ? data[0] : data;
   const keys = useMemo(() => Object.keys(dataset ?? {}), [dataset]);
-  const [selectedKey, setSelectedKey] = useState("");
+  const [selectedKey, setSelectedKey] = useUrlParam(`trace_${urlKey}`);
 
   if (!dataset || keys.length === 0) {
     return <div>No data</div>;

@@ -15,9 +15,8 @@ function RunPanel({ runId, metric, dataset, onDatasetChange }) {
             />
 
             <DatasetChart
-                runId={runId}
-                dataset={dataset}
                 data={data}
+                urlKey={`${metric}_${runId}`}
             />
         </>
     );
