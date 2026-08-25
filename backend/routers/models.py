@@ -1,9 +1,6 @@
 """
-Response models for the newer, typed endpoints.
-
-`/cohort` is the first typed response in the codebase — the older routes
-(`/raw`, `/memory`, etc.) stay untyped dicts deliberately; see TODO.md
-section 0 phase 2 for why they aren't retrofitted yet.
+Response models for the newer, typed endpoints. Older routes (`/raw`,
+`/memory`, etc.) stay untyped dicts deliberately — see TODO.md section 4.
 """
 
 from pydantic import BaseModel
@@ -58,3 +55,22 @@ class CohortResponse(BaseModel):
     rows: list[CohortRow]
     coverage: CohortCoverage
     metrics: list[MetricDefinition]
+
+
+class RunBuilds(BaseModel):
+    A: str | None = None
+    B: str | None = None
+
+
+class RunMetadata(BaseModel):
+    run_id: str
+    datasets: list[str]
+    builds: RunBuilds
+    raw: bool
+    comparison: bool
+    memory: bool
+
+
+class CCHalfResponse(BaseModel):
+    A: list[tuple[str, float]]
+    B: list[tuple[str, float]]

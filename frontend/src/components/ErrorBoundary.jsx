@@ -16,6 +16,13 @@ function Fallback({ label, error, resetErrorBoundary }) {
                     {label ? `${label} failed to render` : "Something went wrong"}
                 </AlertTitle>
                 {error.message}
+                {error.status === 0 && (
+                    <Box sx={{ mt: 1 }}>
+                        A network-level failure looks the same whether the backend is down or CORS
+                        is misconfigured. Check the backend is running, and that <code>VITE_API_URL</code>
+                        {" "}and <code>FRONTEND_URL</code> are set to match each other.
+                    </Box>
+                )}
             </Alert>
         </Box>
     );

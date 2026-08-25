@@ -304,8 +304,9 @@ better or worse; don't fill in a guess to make every metric have a direction.
 else since phase 2b — exact per sample, including for the 5 datasets with more than one sample.
 
 **`routers/models.py` (`CohortResponse` etc.) is the first Pydantic response model in the repo.**
-The older routes (`/raw`, `/memory`, ...) stay untyped dicts on purpose — see TODO section 0 phase 2
-for why they aren't retrofitted alongside this one.
+`RunMetadata` (`/runs/{run_id}`) and `CCHalfResponse` (`/cc_half`) followed once those routes
+existed. The older routes (`/raw`, `/memory`, `/comparison`, `/info`) stay untyped dicts on
+purpose — see TODO section 4.
 
 ## Frontend
 

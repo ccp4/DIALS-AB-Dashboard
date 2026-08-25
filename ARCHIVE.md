@@ -452,6 +452,13 @@ TODO.md's phase 4 for the one item still open.
       Fixed: every route in `runs.py` now calls a shared `_ensure_run_exists` guard, 404 via
       `HTTPException`.
 
+- [x] **Unknown dataset within a valid run returned HTTP 200, not 404** — same bug, one level down.
+      All five per-dataset routes (`/dataset/{id}/raw`, `/dataset/{id}/comparison`,
+      `/memory/{id}`, `/memory/{id}/events`, `/info/{id}`) returned `200 {}` for a bogus dataset id,
+      never caught since `_ensure_run_exists` only checks the run. Fixed with `_ensure_dataset_exists`,
+      the same shape as `_ensure_run_exists`, checking membership in `service.get_datasets(run_id)`.
+      Verified against a live instance: all five now 404 for a bogus id and still 200 for a real one.
+
 - [x] **`RawDataChart` puts `undefined` holes in the series array.**
       [RawDataChart.jsx:54-66](frontend/src/components/RawDataChart.jsx#L54-L66) — the `cc_half`
       branch maps with no `else`, so non-`fit` traces become `undefined`.
@@ -613,6 +620,10 @@ TODO.md's phase 4 for the one item still open.
 
 - [x] **No error boundary.** One throwing component blanks the entire page — as `CumulativeTimeTaken`
       demonstrated.
+      **Refined further:** `ApiError`'s `status: 0` (network failure — backend down or CORS
+      misconfigured, indistinguishable to `fetch()`) reached the boundary but rendered as a plain
+      message with no indication those were the two things to check. `ErrorBoundary`'s fallback now
+      adds a hint pointing at `VITE_API_URL`/`FRONTEND_URL` when `error.status === 0`.
 
 - [x] **Loading/error/empty states are functionality, not polish.** Currently bare `<p>Loading...</p>`
       or nothing at all. With multi-second responses (section 3), users cannot distinguish slow from
@@ -620,6 +631,11 @@ TODO.md's phase 4 for the one item still open.
       The loading half is done — `LoadingState` (section 0, phase 1c). The `35vw`/`40vw` widths are
       deliberately still there; see phase 1c's sizing item for why moving them to the container is
       deferred to phase 4.
+
+- [x] **Extended Pydantic response models past `/cohort`.** `RunMetadata` (`/runs/{run_id}`) and
+      `CCHalfResponse` (`/cc_half`) added to `routers/models.py`, wired via `response_model=` — both
+      routes were built untyped and picked up models once the pattern was already established
+      elsewhere. `/raw`, `/comparison`, `/memory`, `/info` stay untyped dicts, same as before.
 
 ## 5. Product gaps (resolved items)
 
