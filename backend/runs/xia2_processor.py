@@ -1,3 +1,6 @@
+from runs.ab_pair import ab_status
+
+
 def _clean_trace_data(raw_data):
     cleaned = []
 
@@ -33,7 +36,8 @@ def process_xia2_memory_data(raw_data: dict) -> list[dict]:
     for label, values in raw_data.items():
         result.append({
             "label": label,
-            **values
+            **values,
+            "status": ab_status(values.get("A"), values.get("B")),
         })
 
     return result
@@ -122,15 +126,7 @@ def build_cohort(summary_records: list[dict], memory: dict, cumulative_timing: d
                 "cumulative_runtime": timing.get(variant),
             }
 
-        if row["A"] is not None and row["B"] is not None:
-            status = "complete"
-        elif row["A"] is None:
-            status = "missing_a"
-        else:
-            status = "missing_b"
-
-        counts[status] += 1
-        row["status"] = status
+        counts[ab_status(row["A"], row["B"])] += 1
         rows.append(row)
 
     coverage = {"total": len(rows), **counts}

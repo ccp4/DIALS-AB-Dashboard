@@ -203,6 +203,9 @@ migration, 1c chart chrome/layout.
       sites.
 - [x] **Extended Pydantic response models past `/cohort`** — `RunMetadata`, `CCHalfResponse`
       added; `/raw`/`/comparison`/`/memory`/`/info` stay untyped by design.
+- [x] **No domain model** — added `ABPair[T]` (`runs/ab_pair.py`) and `DatasetSampleId`
+      (`runs/dataset_id.py`), used by `CohortRow` and the per-sample extractors respectively. A
+      `run_id` type was dropped — no structure to encapsulate.
 
 ## 5. Product gaps (resolved items)
 
@@ -218,6 +221,10 @@ migration, 1c chart chrome/layout.
       Iglewicz & Hoaglin's MAD-zero fallback) was built and tried against a real run, then
       **reverted in full** — the statistical method was sound, the UI didn't earn its place.
       Decided not to revisit.
+- [x] **Incomplete A/B pairs silently dropped in `/memory`** — `_extract_memory_files` now emits a
+      row for every known sample (not just ones with ≥1 file present), each carrying an `ab_status`
+      `status`. `MemoryPanels.jsx` shows a coverage line per run. `MemoryABChart`/etc. untouched —
+      same array shape, now just complete.
 
 ## 6. Unused code — resolved
 

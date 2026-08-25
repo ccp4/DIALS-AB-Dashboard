@@ -103,12 +103,9 @@ All resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
 
 The `Workspace` Protocol reconciliation, the API client, one fetch idiom, the chrome-vs-meaning
 chart config split, A/B colour tokens, the error boundary and loading/error/empty states are all
-resolved — see [ARCHIVE.md](ARCHIVE.md) section 4.
-
-- [ ] **No domain model.** The A/B concept is rediscovered in every extractor — sometimes from a
-      filename suffix, sometimes from `f.parent.name` — each returning an ad-hoc `{"A": [], "B": []}`.
-      There's no type for a run, a dataset, or an A/B pair, so "these two things are comparable" is
-      re-asserted by hand in a dozen places.
+resolved — see [ARCHIVE.md](ARCHIVE.md) section 4. The domain-model gap is resolved too — see
+ARCHIVE.md section 4. (A `run_id` type was considered and dropped: no internal structure to
+encapsulate.)
 
 - [ ] **The API contract is untyped magic strings, on the routes that still emit them.** The
       backend emits `"A - d_min"`/`"B - d_min"` etc.; `DatasetChart` substring-matches it (see
@@ -128,22 +125,7 @@ resolved — see [ARCHIVE.md](ARCHIVE.md) section 4.
 
 ## 5. Product gaps — what stops this being a useful dashboard
 
-Provenance extraction and the A-not-a-fixed-baseline warning are resolved — see
-[ARCHIVE.md](ARCHIVE.md) section 5. Delta distributions/per-dataset significance were tried once
-(a %Δ histogram, reverted) and dropped as unnecessary — see ARCHIVE.md section 5.
-
-- [ ] **Incomplete A/B pairs are silently dropped in `/memory`.** A missing `B/` directory means
-      the comparison *cannot be made* for that dataset and must be reported — the extractor just
-      omits the key, and the frontend's `.filter(Number.isFinite)` (`MemoryABChart`,
-      `MemoryRankChart`, `MemoryOverlayChart`, `SingleMemoryPlot`) discards it without a trace, so a
-      regression line looks healthy over a silently shrunken sample. (Empty lists/mismatched arrays
-      are a different, correctly-filtered case — `_clean_trace_data` needs no change.)
-
-      **Done for `/cohort`** (`CohortRow.status`/`CohortCoverage`, phase 2). **Not done for
-      `/memory`, and this is a real gap, not waste** — `MemoryABChart`/`MemoryRankChart` are staying
-      permanently (section 0 phase 4's standing note), not superseded by 8.3 as this bullet
-      originally assumed. Minimum fix: have `/memory` report a coverage count the same shape as
-      `/cohort`'s.
+All resolved — see [ARCHIVE.md](ARCHIVE.md) section 5.
 
 ## 6. Unused code — status confirmed
 

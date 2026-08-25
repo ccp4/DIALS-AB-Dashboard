@@ -5,6 +5,8 @@ Response models for the newer, typed endpoints. Older routes (`/raw`,
 
 from pydantic import BaseModel
 
+from runs.ab_pair import ABPair
+
 
 class MetricDefinition(BaseModel):
     key: str
@@ -36,12 +38,9 @@ class VariantSummary(BaseModel):
     cumulative_runtime: float | None = None
 
 
-class CohortRow(BaseModel):
+class CohortRow(ABPair[VariantSummary]):
     dataset: str
     sample: str
-    status: str
-    A: VariantSummary | None = None
-    B: VariantSummary | None = None
 
 
 class CohortCoverage(BaseModel):

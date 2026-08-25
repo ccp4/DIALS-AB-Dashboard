@@ -162,7 +162,9 @@ Two consequences worth internalising:
    rekeys every result dict. **`dataset` is this composite id everywhere in the backend** —
    `extract_xia2_datasets` always returns `"dataset/sample"` strings, even for single-sample
    datasets, and every route/function treats it as an opaque string, splitting only at the
-   filesystem boundary (`_dataset_sample_path`). Routes declare it `{dataset:path}` so the
+   filesystem boundary. `runs/dataset_id.py`'s `DatasetSampleId.parse()` is the one place that
+   split happens now — `_dataset_sample_path` and every extractor that used to do
+   `dataset.split("/", 1)` by hand build on it instead. Routes declare it `{dataset:path}` so the
    embedded `/` survives routing — verified against a live instance, including with a fixed suffix
    after it (e.g. `.../raw`). **One route-ordering trap this created:** where two routes share a
    `{dataset:path}` prefix and one is a strict suffix-extension of the other
@@ -258,6 +260,11 @@ sample, including for the 5 multi-sample datasets.
 **`routers/models.py` (`CohortResponse` etc.)** is the first Pydantic response model in the repo.
 `RunMetadata` (`/runs/{run_id}`) and `CCHalfResponse` (`/cc_half`) followed. The older routes
 (`/raw`, `/memory`, `/comparison`, `/info`) stay untyped dicts on purpose — see TODO section 4.
+
+**`runs/ab_pair.py`'s `ABPair[T]`** is the one reusable type for "two comparable values, either
+side may be missing" — `status` is a computed field derived from A/B, never stored, so it can't
+drift. `CohortRow` inherits from it. Reach for it before reinventing the `{"A":..., "B":...}` +
+manual status-branch pattern anywhere else.
 
 ## Frontend
 

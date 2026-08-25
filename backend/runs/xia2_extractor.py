@@ -4,11 +4,12 @@ import json
 import re
 from bisect import bisect_left
 
+from runs.dataset_id import DatasetSampleId
+
 
 def _dataset_sample_path(run_id: str, dataset: str) -> str:
     """`dataset` is a composite `"dataset/sample"` id — resolve it to the sample's directory."""
-    top, sample = dataset.split("/", 1)
-    return f"{run_id}/{top}/data/{sample}"
+    return DatasetSampleId.parse(dataset).path(run_id)
 
 def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     """
@@ -120,11 +121,11 @@ def extract_xia2_summary(workspace: Workspace, run_id: str) -> list[dict]:
     records = []
 
     for composite_id in extract_xia2_datasets(workspace, run_id):
-        dataset, sample = composite_id.split("/", 1)
-        record = {"dataset": dataset, "sample": sample, "A": None, "B": None}
+        id_ = DatasetSampleId.parse(composite_id)
+        record = {"dataset": id_.dataset, "sample": id_.sample, "A": None, "B": None}
 
         for variant in ("A", "B"):
-            path = f"{run_id}/{dataset}/data/{sample}/{variant}/xia2-summary.dat"
+            path = f"{id_.path(run_id)}/{variant}/xia2-summary.dat"
             if workspace.exists(path):
                 record[variant] = _parse_xia2_summary(workspace.read_text(path))
 
@@ -158,11 +159,11 @@ def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str)
 
 def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
     """Builds the path directly rather than listing and filtering — called once per sample."""
-    top, sample = dataset.split("/", 1)
+    id_ = DatasetSampleId.parse(dataset)
     res = {"A": [], "B": []}
 
     for variant in ("A", "B"):
-        path = f"{run_id}/{top}/data/{sample}/{variant}/xia2-timing.json"
+        path = f"{id_.path(run_id)}/{variant}/xia2-timing.json"
         if not workspace.exists(path):
             continue
 
@@ -330,16 +331,15 @@ def _extract_memory_files(workspace: Workspace, run_id: str, filename: str) -> d
     result = {}
 
     for composite_id in extract_xia2_datasets(workspace, run_id):
-        top, sample = composite_id.split("/", 1)
+        id_ = DatasetSampleId.parse(composite_id)
+        entry = result.setdefault(composite_id, {})
 
         for variant in ("A", "B"):
-            path = f"{run_id}/{top}/data/{sample}/{variant}/{filename}"
+            path = f"{id_.path(run_id)}/{variant}/{filename}"
             if not workspace.exists(path):
                 continue
 
             matches = pattern.findall(workspace.read_text(path))
-            value = float(matches[-1]) if matches else None
-
-            result.setdefault(composite_id, {})[variant] = value
+            entry[variant] = float(matches[-1]) if matches else None
 
     return result

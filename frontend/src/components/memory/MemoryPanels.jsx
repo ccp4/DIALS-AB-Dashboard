@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { Typography } from "@mui/material";
 import ErrorBoundary from "../ErrorBoundary";
 import LoadingState from "../LoadingState";
 import MemoryABChart from "./MemoryABChart";
@@ -9,6 +10,12 @@ import CumulativeTimeTaken from "./CumulativeTimeTaken";
 import { useApiAll } from "../../hooks/useApi";
 
 const DS_PREFIX = "ds_";
+
+function memoryCoverage(rows) {
+	const counts = { complete: 0, missing_a: 0, missing_b: 0 };
+	rows.forEach(row => { counts[row.status] = (counts[row.status] ?? 0) + 1; });
+	return { total: rows.length, ...counts };
+}
 
 /**
  * The body of the memory and timings page.
@@ -59,6 +66,17 @@ export default function MemoryPanels({ runs }) {
 					label={`Loading memory data for ${pending.length} more run${pending.length === 1 ? "" : "s"}...`}
 				/>
 			)}
+
+			{Object.entries(data).map(([run, rows]) => {
+				const coverage = memoryCoverage(rows);
+				return (
+					<Typography key={run} variant="body2" color="text.secondary">
+						{run}: {coverage.complete} / {coverage.total} complete
+						{coverage.missing_a > 0 && ` · ${coverage.missing_a} missing A`}
+						{coverage.missing_b > 0 && ` · ${coverage.missing_b} missing B`}
+					</Typography>
+				);
+			})}
 
 			<ErrorBoundary label="Memory comparison" resetKeys={runs}>
 				<MemoryComparisonBlock data={data} />
