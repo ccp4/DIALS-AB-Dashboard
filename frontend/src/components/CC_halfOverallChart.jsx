@@ -1,7 +1,8 @@
+import EChartsStat from "echarts-stat";
+
 import Chart from "./Chart";
 import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../theme/chartChrome";
-import { lineType, variantSeriesStyle } from "../theme/variant";
+import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
 
 // Convert (1/d)^2 -> d
 function invSqToD(v) {
@@ -16,6 +17,29 @@ function invSqToD(v) {
     return 1 / Math.sqrt(v);
 }
 
+function formatD(v) {
+    const d = invSqToD(v);
+    return d != null ? d.toFixed(2) : "—";
+}
+
+/**
+ * One B-against-A parity scatter per run, with an identity line, a linear fit
+ * and a summary callout — the same shape as `MemoryABChart`, reused here.
+ *
+ * Values are the CC½ threshold crossing (`d_min`) DIALS computed per dataset,
+ * stored as inverse-square-d; axis ticks and the tooltip convert to Å for
+ * readability, but the identity line, regression and win-count are all
+ * computed on the raw values, which is the space the chart is actually drawn
+ * in. Higher raw value = smaller Å = better resolution, the opposite
+ * direction from `MemoryABChart`'s "smaller is better" — so "B better"
+ * here means `B > A`, not `B < A`.
+ *
+ * Only datasets with a finite value for both variants are plotted; the count
+ * of those that survive is reported in the callout as the denominator.
+ *
+ * @param {Object<string, {A: Array<[string, number]>, B: Array<[string, number]>}>} data
+ *        Keyed by run id.
+ */
 function CC_halfOverallChart({ data }) {
 
     const memory = data ?? {};
@@ -23,151 +47,234 @@ function CC_halfOverallChart({ data }) {
 
     if (!runs.length) return null;
 
-    const series = [];
-    const datasetUnion = new Set();
-
-    runs.forEach((run, runIndex) => {
-
-        const runData = memory[run] ?? { A: [], B: [] };
-
-        const aLookup = Object.fromEntries(runData.A ?? []);
-        const bLookup = Object.fromEntries(runData.B ?? []);
-
-        // Best (highest inverse-square-d, i.e. best resolution) first.
-        const sortKey = (dataset) => aLookup[dataset] ?? bLookup[dataset] ?? -Infinity;
-
-        const datasets = Array.from(new Set([...Object.keys(aLookup), ...Object.keys(bLookup)]))
-            .sort((a, b) => sortKey(b) - sortKey(a));
-
-        const valuesA = [];
-        const valuesB = [];
-        const valuesDiff = [];
-
-        datasets.forEach(dataset => {
-
-            const aVal = aLookup[dataset] ?? null;
-            const bVal = bLookup[dataset] ?? null;
-
-            valuesA.push(aVal);
-            valuesB.push(bVal);
-
-            valuesDiff.push(
-                aVal != null && bVal != null
-                    ? aVal - bVal
-                    : null
-            );
-
-            if (aVal == null || bVal == null) {
-                console.warn(
-                    `[CC_halfOverallChart] Missing d_min`,
-                    { run, dataset, aVal, bVal }
-                );
-            }
-
-            datasetUnion.add(dataset);
-        });
-
-        series.push({
-            name: `${run} - A`,
-            type: "line",
-            yAxisIndex: 0,
-            showSymbol: true,
-            data: valuesA,
-            ...variantSeriesStyle("A", runIndex),
-        });
-
-        series.push({
-            name: `${run} - B`,
-            type: "line",
-            yAxisIndex: 0,
-            showSymbol: true,
-            data: valuesB,
-            ...variantSeriesStyle("B", runIndex),
-        });
-
-        series.push({
-            name: `${run} Δ`,
-            type: "line",
-            yAxisIndex: 1,
-            showSymbol: true,
-            data: valuesDiff,
-            itemStyle: { color: tokens.series[0] },
-            lineStyle: {
-                color: tokens.series[0],
-                type: lineType(runIndex),
-                width: 2,
-            },
-            symbol: "diamond",
-        });
-    });
-
-    const xAxis = Array.from(datasetUnion);
-
-    const options = {
-        title: {
-            text: "CC½ Resolution and A−B Difference",
-            left: "center",
-        },
-
-        tooltip: {
-            trigger: "axis",
-            axisPointer: {
-                type: "cross",
-            },
-        },
-
-        legend: STANDARD_LEGEND,
-
-        xAxis: {
-            type: "category",
-            data: xAxis,
-            name: "Dataset",
-        },
-
-        yAxis: [
-            {
-                type: "value",
-                inverse: true,
-                name: "Resolution (Å)",
-                axisLabel: {
-                    formatter: (value) => {
-                        if (!Number.isFinite(value) || value <= 0) {
-                            return "";
-                        }
-
-                        return invSqToD(value).toFixed(2);
-                    }
-                }
-            },
-            {
-                type: "value",
-                name: "Difference (Å⁻²)",
-                position: "right",
-                alignTicks: true,
-                axisLine: {
-                    show: true,
-                },
-                axisLabel: {
-                    formatter: value => value.toFixed(3),
-                }
-            }
-        ],
-
-        dataZoom: STANDARD_DATA_ZOOM,
-
-        series,
-    };
-
     return (
-        <Chart
-            option={options}
-            notMerge
-            lazyUpdate
+        <div
             style={{
-                height: tokens.chart.height.tall,
-                width: "70vw",
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+                gap: "20px",
             }}
-        />
+        >
+            {runs.map((run) => {
+                const runData = memory[run] ?? { A: [], B: [] };
+
+                const aLookup = Object.fromEntries(runData.A ?? []);
+                const bLookup = Object.fromEntries(runData.B ?? []);
+
+                const points = Object.keys(aLookup)
+                    .filter(dataset => Number.isFinite(aLookup[dataset]) && Number.isFinite(bLookup[dataset]))
+                    .map(dataset => ({
+                        value: [aLookup[dataset], bLookup[dataset]],
+                        label: dataset,
+                        A: aLookup[dataset],
+                        B: bLookup[dataset],
+                    }));
+
+                const maxValue = Math.max(
+                    ...points.flatMap(p => [p.A, p.B]),
+                    1
+                );
+
+                const regression = EChartsStat.regression(
+                "linear",
+                points.map((p) => [p.A, p.B])
+                );
+
+                const regressionLine = regression.points;
+
+                const ratios = points
+                    .map(p => p.B / p.A)
+                    .filter(Number.isFinite)
+                    .sort((a, b) => a - b);
+
+                const median = ratios.length
+                    ? ratios.length % 2
+                        ? ratios[(ratios.length - 1) / 2]
+                        : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
+                    : null;
+
+                const bBetter = points.filter(p => p.B > p.A).length;
+
+                const regressionSummary =
+                    `B better on ${bBetter} of ${points.length}` +
+                    `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
+                    `\nfit: ${regression.expression}`;
+
+                const identityLine = [];
+                const step = Math.max(maxValue / 100, 1);
+
+                for (let x = 0; x <= maxValue; x += step) {
+                    identityLine.push([x, x]);
+                }
+
+                if (identityLine.at(-1)?.[0] !== maxValue) {
+                    identityLine.push([maxValue, maxValue]);
+                }
+
+                const series = [
+                    {
+                        name: "x = y",
+                        type: "line",
+                        data: identityLine,
+                        symbol: "none",
+                        silent: true,
+                        animation: false,
+                        lineStyle: {
+                            color: tokens.line.reference,
+                            width: 1,
+                            type: "dashed",
+                        },
+                        z: 0,
+                    },
+                    {
+                        name: "Regression",
+                        type: "line",
+                        data: regressionLine,
+                        symbol: "none",
+                        silent: true,
+                        animation: false,
+                        lineStyle: {
+                            color: tokens.series[0],
+                            width: 2,
+                        },
+                        z: 1,
+                    },
+                    {
+                        name: run,
+                        type: "scatter",
+                        symbol: "circle",
+                        symbolSize: 6,
+
+                        itemStyle: {
+                            color: tokens.ink.strong,
+                            opacity: 0.7,
+                        },
+
+                        emphasis: {
+                            scale: true,
+                            itemStyle: {
+                                opacity: 1,
+                                borderColor: tokens.ink.strong,
+                                borderWidth: 1,
+                            },
+                        },
+
+                        data: points,
+                        z: 2,
+                    },
+                ]
+
+                const options = {
+                    title: {
+                        text: `${run}: CC½ resolution, A vs B`,
+                        left: "center",
+                    },
+
+                        graphic: [
+                        {
+                            type: "group",
+                            right: 20,
+                            top: 200,
+                            children: [
+                                {
+                                    type: "rect",
+                                    shape: {
+                                        width: 220,
+                                        height: 80,
+                                        r: 5,
+                                    },
+                                    style: {
+                                        fill: tokens.surface.overlay,
+                                        stroke: tokens.surface.border,
+                                        lineWidth: 1,
+                                        shadowBlur: 5,
+                                        shadowColor: tokens.surface.border,
+                                    },
+                                },
+                                {
+                                    type: "text",
+                                    left: 10,
+                                    top: 10,
+                                    style: {
+                                        text: regressionSummary,
+                                        font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
+                                        fill: tokens.ink.base,
+                                        lineHeight: 20,
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+
+                    tooltip: {
+                        trigger: "item",
+                        axisPointer: {
+                            type: "cross",
+                        },
+                        formatter: params => {
+                            const d = params.data;
+
+                            return `
+                                <b>${d.label}</b><br/>
+                                A: ${formatD(d.A)} Å<br/>
+                                B: ${formatD(d.B)} Å
+                            `;
+                        },
+                    },
+
+                    xAxis: {
+                        type: "value",
+                        name: "A (Å)",
+                        nameLocation: "middle",
+                        nameGap: 30,
+                        nameTextStyle: {
+                            color: tokens.variant.A,
+                            fontWeight: 600,
+                        },
+                        min: 0,
+                        max: maxValue,
+                        scale: true,
+                        axisLabel: { formatter: formatD },
+                    },
+
+                    yAxis: {
+                        type: "value",
+                        name: "B (Å)",
+                        nameLocation: "middle",
+                        nameGap: 40,
+                        nameTextStyle: {
+                            color: tokens.variant.B,
+                            fontWeight: 600,
+                        },
+                        min: 0,
+                        max: maxValue,
+                        scale: true,
+                        axisLabel: { formatter: formatD },
+                    },
+
+                    grid: {
+                        containLabel: true,
+                    },
+
+                    dataZoom: STANDARD_DATA_ZOOM,
+
+                    series
+                };
+
+                return (
+                    <Chart
+                        key={run}
+                        option={options}
+                        notMerge
+                        lazyUpdate
+                        style={{
+                            height: tokens.chart.height.panel,
+                            width: "100%",
+                        }}
+                    />
+                );
+            })}
+        </div>
     );
 }
 

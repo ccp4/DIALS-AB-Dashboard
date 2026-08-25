@@ -681,6 +681,20 @@ TODO.md's phase 4 for the one item still open.
       `xia2-summary.dat`-derived registry, and `CC_halfOverallChart`'s per-run overview doesn't fit
       the per-`(dataset, sample)` cohort row shape anyway. No `test_cohort.py` changes needed — it
       doesn't exercise `/cc_half`.
+- [x] **`CC_halfOverallChart` redesigned as a parity plot, one per run.** The original multi-line
+      overlay (A/B/Δ lines across up to 231 datasets on one shared category axis) was hard to read
+      at a glance — judged so directly, not assumed. Rebuilt on `MemoryABChart`'s already-proven
+      shape (small-multiples grid, one B-vs-A parity scatter per run, identity line + regression +
+      win-count/median-ratio summary) rather than `MetricScatter`'s, since this chart is one-metric-
+      many-runs while `MetricScatter` is many-metrics-one-run. Two things flip relative to
+      `MemoryABChart`'s memory version: "better" is `B > A` here (higher inverse-square-d = smaller
+      Å = better resolution), the opposite direction from memory's "smaller is better"; and axis
+      ticks/tooltip convert the raw inverse-square-d values to Å for readability via the same
+      `invSqToD` helper the old chart used, while the identity line, regression and win-count are
+      still computed on the raw values, which is the space the chart is actually drawn in. Since
+      each run now gets its own independent scatter with its own axes rather than sharing one
+      coordinate system, it no longer belongs in CLAUDE.md's "plots multiple runs on shared axes"
+      confound list alongside `MemoryRankChart` — updated there.
 
 **Superseded, safe to delete:**
 

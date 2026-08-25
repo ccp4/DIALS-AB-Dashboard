@@ -24,10 +24,12 @@ None of this is derivable from the code, and all of it affects whether a change 
 - **A is not a fixed baseline.** It tracks whatever main was when the run executed — it is not
   pinned per campaign. Run 2700's A is `DIALS 3.dev.1493-gf324578a1`; run 5400's A is
   `3.dev.1488-g893c8dfee`. **Cross-run comparisons are therefore confounded** — a difference
-  between runs may be baseline drift rather than an effect of B. `CC_halfOverallChart` and
-  `MemoryRankChart` both plot multiple runs on shared axes; `RunProvenance.jsx` (phase 3) is the
-  mitigation — it shows each selected run's A/B build and warns when the A builds differ, but it
-  doesn't stop these two charts from still plotting the confounded data side by side.
+  between runs may be baseline drift rather than an effect of B. `MemoryRankChart` plots multiple
+  runs on shared axes; `RunProvenance.jsx` (phase 3) is the mitigation — it shows each selected
+  run's A/B build and warns when the A builds differ, but it doesn't stop this chart from still
+  plotting the confounded data side by side. `CC_halfOverallChart`/`MemoryABChart` render one
+  parity scatter per run in its own small-multiples panel instead — each has its own axes, so this
+  confound doesn't apply there the same way.
 - **The exact builds are extracted**, per variant, by `extract_xia2_build_info`
   (`xia2_extractor.py`, phase 3) — reads `xia2-debug.txt` (also `xia2.txt` and
   `dials.integrate.log`, unused so far), surfaced as `/runs/{run_id}`'s `builds` field.
