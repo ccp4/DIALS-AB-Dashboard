@@ -10,6 +10,8 @@ import {
 } from "@mui/material";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
+import BackButton from "./BackButton";
+
 const drawerWidth = "15vw";
 
 export default function DashboardLayout() {
@@ -28,7 +30,8 @@ export default function DashboardLayout() {
         color="secondary"
       >
         <Toolbar>
-          <Typography variant="h6">DIALS A-B Dashboard</Typography>
+          <BackButton />
+          <Typography variant="h6" sx={{ ml: 1 }}>DIALS A-B Dashboard</Typography>
         </Toolbar>
       </AppBar>
 
@@ -46,7 +49,7 @@ export default function DashboardLayout() {
         <Toolbar />
 
 				<List>
-					<ListItemButton component={Link} to={{ pathname: "/", search: sharedSearch }}>
+					<ListItemButton component={Link} to={{ pathname: "/memory", search: sharedSearch }}>
 						<ListItemText primary="Memory Usage" />
 					</ListItemButton>
 
