@@ -65,6 +65,7 @@ export default function DashboardLayout() {
         component="main"
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           p: 3,
         }}
       >
