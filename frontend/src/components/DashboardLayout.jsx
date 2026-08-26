@@ -8,11 +8,17 @@ import {
   ListItemButton,
   ListItemText,
 } from "@mui/material";
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 const drawerWidth = "15vw";
 
 export default function DashboardLayout() {
+  // Only "runs" is forwarded, not the whole search string — Explore's own
+  // "run" param must not leak into the other two pages.
+  const location = useLocation();
+  const runsParam = new URLSearchParams(location.search).get("runs");
+  const sharedSearch = runsParam ? `?${new URLSearchParams({ runs: runsParam })}` : "";
+
   return (
     <Box sx={{ display: "flex" }}>
       {/* Top bar */}
@@ -40,11 +46,11 @@ export default function DashboardLayout() {
         <Toolbar />
 
 				<List>
-					<ListItemButton component={Link} to="/">
+					<ListItemButton component={Link} to={{ pathname: "/", search: sharedSearch }}>
 						<ListItemText primary="Memory Usage" />
 					</ListItemButton>
 
-					<ListItemButton component={Link} to="/datasets">
+					<ListItemButton component={Link} to={{ pathname: "/datasets", search: sharedSearch }}>
 						<ListItemText primary="Data Quality" />
 					</ListItemButton>
 
