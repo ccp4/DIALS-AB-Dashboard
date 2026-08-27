@@ -206,6 +206,14 @@ migration, 1c chart chrome/layout.
 - [x] **No domain model** — added `ABPair[T]` (`runs/ab_pair.py`) and `DatasetSampleId`
       (`runs/dataset_id.py`), used by `CohortRow` and the per-sample extractors respectively. A
       `run_id` type was dropped — no structure to encapsulate.
+- [x] **`cc_half`'s blank-chart-on-rename risk** — `DatasetChart` now falls back to showing every
+      trace if none match `"fit"`, instead of defaulting all to hidden. Depending on DIALS's own
+      `"fit"` naming is accepted, not hardened further.
+- [x] **Typed the remaining live routes** — `TraceSeries`/`DatasetSeries`, `MemoryRow`,
+      `MemoryProfile`, `MemoryEventsResponse`, `DatasetInfoResponse` (using `ABPair[str]`, which
+      needed `extract_xia2_unit_cell`/`extract_xia2_space_group` fixed to return `None` instead of
+      `[]` for a missing variant). `/cumulative` reuses `CCHalfResponse` (identical shape). The
+      whole-run `/raw`/`/comparison` stay untyped — confirmed zero frontend consumers.
 
 ## 5. Product gaps (resolved items)
 

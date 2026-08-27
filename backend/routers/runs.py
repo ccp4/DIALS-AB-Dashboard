@@ -1,7 +1,16 @@
 from fastapi import APIRouter, HTTPException
 from runs.service import RunService
 from workspace.factory import get_workspace
-from routers.models import CohortResponse, RunMetadata, CCHalfResponse
+from routers.models import (
+    CohortResponse,
+    RunMetadata,
+    CCHalfResponse,
+    DatasetSeries,
+    MemoryRow,
+    MemoryProfile,
+    MemoryEventsResponse,
+    DatasetInfoResponse,
+)
 
 router = APIRouter(
     prefix="/runs",
@@ -42,14 +51,14 @@ def get_raw(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_raw(run_id=run_id)
 
-@router.get("/{run_id}/dataset/{dataset:path}/raw")
+@router.get("/{run_id}/dataset/{dataset:path}/raw", response_model=DatasetSeries)
 def get_raw_dataset(run_id: str, dataset: str):
     _ensure_run_exists(run_id)
     _ensure_dataset_exists(run_id, dataset)
     result = service.get_xia2_dataset_raw(run_id, dataset)
     return result
 
-@router.get("/{run_id}/dataset/{dataset:path}/comparison")
+@router.get("/{run_id}/dataset/{dataset:path}/comparison", response_model=DatasetSeries)
 def get_dataset_comparison(run_id: str, dataset: str):
     _ensure_run_exists(run_id)
     _ensure_dataset_exists(run_id, dataset)
@@ -73,7 +82,7 @@ def get_comparison(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_comparison(run_id=run_id)
 
-@router.get("/{run_id}/memory")
+@router.get("/{run_id}/memory", response_model=list[MemoryRow])
 def get_memory(run_id: str):
     """
     Returns memory data extracted from run folder
@@ -81,7 +90,7 @@ def get_memory(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_memory(run_id=run_id)
 
-@router.get("/{run_id}/memory/{dataset:path}/events")
+@router.get("/{run_id}/memory/{dataset:path}/events", response_model=MemoryEventsResponse)
 def get_memory_timings(run_id: str, dataset: str):
     """
     Returns memory data extracted from run folder
@@ -90,7 +99,7 @@ def get_memory_timings(run_id: str, dataset: str):
     _ensure_dataset_exists(run_id, dataset)
     return service.get_xia2_dataset_timing(run_id=run_id, dataset=dataset)
 
-@router.get("/{run_id}/memory/{dataset:path}")
+@router.get("/{run_id}/memory/{dataset:path}", response_model=MemoryProfile)
 def get_memory_plot(run_id: str, dataset: str):
     """
     Returns memory data extracted from run folder
@@ -99,7 +108,7 @@ def get_memory_plot(run_id: str, dataset: str):
     _ensure_dataset_exists(run_id, dataset)
     return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
 
-@router.get("/{run_id}/cumulative")
+@router.get("/{run_id}/cumulative", response_model=CCHalfResponse)
 def get_cumulative_memory_timings(run_id: str):
     """
     Returns cumulative memory TIMINGS
@@ -107,7 +116,7 @@ def get_cumulative_memory_timings(run_id: str):
     _ensure_run_exists(run_id)
     return service.get_xia2_dataset_cumulative_timings(run_id=run_id)
 
-@router.get("/{run_id}/info/{dataset:path}")
+@router.get("/{run_id}/info/{dataset:path}", response_model=DatasetInfoResponse)
 def get_info(run_id: str, dataset: str):
     """
     Returns unit cell and space group info about dataset

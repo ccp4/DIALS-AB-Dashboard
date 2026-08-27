@@ -1,6 +1,7 @@
 """
-Response models for the newer, typed endpoints. Older routes (`/raw`,
-`/memory`, etc.) stay untyped dicts deliberately — see TODO.md section 4.
+Response models for the typed endpoints. The whole-run `/raw` and
+`/comparison` stay untyped dicts on purpose — dev/test routes, no frontend
+consumer. See TODO.md section 4.
 """
 
 from pydantic import BaseModel
@@ -73,3 +74,40 @@ class RunMetadata(BaseModel):
 class CCHalfResponse(BaseModel):
     A: list[tuple[str, float]]
     B: list[tuple[str, float]]
+
+
+class TraceSeries(BaseModel):
+    name: str
+    data: list[tuple[float, float]]
+
+
+DatasetSeries = dict[str, list[TraceSeries]]
+
+
+class MemoryRow(BaseModel):
+    label: str
+    A: float | None = None
+    B: float | None = None
+    status: str
+
+
+class MemoryProfile(BaseModel):
+    A: list[tuple[float, float]] = []
+    B: list[tuple[float, float]] = []
+
+
+class TimingEvent(BaseModel):
+    command: str
+    time_start: float
+    time_end: float
+    runtime: float
+
+
+class MemoryEventsResponse(BaseModel):
+    A: list[TimingEvent] = []
+    B: list[TimingEvent] = []
+
+
+class DatasetInfoResponse(BaseModel):
+    unit_cell: ABPair[str]
+    space_group: ABPair[str]

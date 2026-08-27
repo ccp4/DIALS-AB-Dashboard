@@ -47,6 +47,9 @@ function DatasetChart({ data, urlKey }) {
     }})
   
   const shouldSelectFits = activeKey === "cc_half" && traces.length > 0;
+  // If nothing matches "fit" (e.g. DIALS renamed the trace), fall back to
+  // showing everything rather than defaulting every trace to hidden.
+  const anyFitTrace = traces.some(({ name }) => name.includes("fit"));
 
   const legend = {
     orient: "vertical",
@@ -54,7 +57,7 @@ function DatasetChart({ data, urlKey }) {
     top: "center",
     align: "left",
     selected: shouldSelectFits
-      ? Object.fromEntries(traces.map(({ name }) => [name, name.includes("fit")]))
+      ? Object.fromEntries(traces.map(({ name }) => [name, anyFitTrace ? name.includes("fit") : true]))
       : undefined,
   };
   

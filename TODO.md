@@ -103,23 +103,14 @@ All resolved — see [ARCHIVE.md](ARCHIVE.md) section 3.
 
 The `Workspace` Protocol reconciliation, the API client, one fetch idiom, the chrome-vs-meaning
 chart config split, A/B colour tokens, the error boundary and loading/error/empty states are all
-resolved — see [ARCHIVE.md](ARCHIVE.md) section 4. The domain-model gap is resolved too — see
-ARCHIVE.md section 4. (A `run_id` type was considered and dropped: no internal structure to
-encapsulate.)
-
-- [ ] **The API contract is untyped magic strings, on the routes that still emit them.** The
-      backend emits `"A - d_min"`/`"B - d_min"` etc.; `DatasetChart` substring-matches it (see
-      CLAUDE.md's series contract) — a rename produces a blank chart and no error anywhere.
-      `RawDataChart` used to do the same but was deleted in phase 1b; `CC_halfOverallChart` no
-      longer does either, since it reads the typed `/cc_half` endpoint now.
-      **Partially addressed:** `CohortResponse`, `RunMetadata` and `CCHalfResponse`
-      (`routers/models.py`) now cover `/cohort`, `/runs/{run_id}` and `/cc_half`. `/raw`,
-      `/comparison`, `/memory` and `/info` — the routes that actually carry the untyped
-      `"A - " / "B - "` trace names `DatasetChart` depends on — are still plain dicts.
+resolved — see [ARCHIVE.md](ARCHIVE.md) section 4. The domain-model gap is resolved too (a `run_id`
+type was considered and dropped — no internal structure to encapsulate), and so is the untyped-API
+gap — see ARCHIVE.md section 4 for both.
 
 - [ ] **No tests of any kind**, on a project whose entire value is numerical correctness. The
-      series-name coupling above is exactly the kind of thing a small contract test would pin down.
-      Partially addressed: `backend/test_cohort.py` (phase 2, section 0) is the first test in the
+      `"fit"` series-name coupling (CLAUDE.md's series contract) is exactly the kind of thing a
+      small contract test would pin down. Partially addressed: `backend/test_cohort.py` (phase 2,
+      section 0) is the first test in the
       repo, covering `/cohort`'s shape and the 404-on-unknown-run fix. Everything else — the series
       contract itself, the numeric extractors, the frontend — is still untested.
 

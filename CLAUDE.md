@@ -206,9 +206,10 @@ Two consequences worth internalising:
 
 `_apache_series_builder` emits `{"name": ..., "data": [[x, y], ...]}`, prefixing names with
 `"A - "`/`"B - "`. `DatasetChart` locates traces by substring match on that name (`"fit"`, for
-`cc_half`'s fitted curve) — **renaming in the builder breaks that chart silently**, no error, just
-an empty plot. Grep the frontend for the trace name before changing it. `CC_halfOverallChart` no
-longer goes through `_apache_series_builder` at all — see below.
+`cc_half`'s fitted curve) — an accepted dependency on DIALS's own naming; if nothing matches,
+`DatasetChart` falls back to showing every trace rather than defaulting all to hidden. Grep the
+frontend for the trace name before changing it. `CC_halfOverallChart` no longer goes through
+`_apache_series_builder` at all — see below.
 
 ### `GET /runs/{run_id}/cc_half`
 
@@ -257,9 +258,10 @@ better or worse — don't fill in a guess.
 `extract_xia2_cumulative_timing`, keyed by the same composite `"dataset/sample"` id — exact per
 sample, including for the 5 multi-sample datasets.
 
-**`routers/models.py` (`CohortResponse` etc.)** is the first Pydantic response model in the repo.
-`RunMetadata` (`/runs/{run_id}`) and `CCHalfResponse` (`/cc_half`) followed. The older routes
-(`/raw`, `/memory`, `/comparison`, `/info`) stay untyped dicts on purpose — see TODO section 4.
+**`routers/models.py` (`CohortResponse` etc.)** is the first Pydantic response model in the repo,
+now covering every route with a live frontend consumer — including `/memory`, `/cumulative`,
+`/info/{dataset}`, and the dataset-scoped `/dataset/{dataset}/raw`/`comparison`. Only the whole-run
+`/raw` and `/comparison` stay untyped dicts — confirmed dev/test routes with zero consumers.
 
 **`runs/ab_pair.py`'s `ABPair[T]`** is the one reusable type for "two comparable values, either
 side may be missing" — `status` is a computed field derived from A/B, never stored, so it can't

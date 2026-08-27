@@ -206,7 +206,7 @@ def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
 
-    res = {"A": [],"B": []}
+    res = {"A": None, "B": None}
 
     for f in files:
         if f.name not in wanted:
@@ -225,7 +225,7 @@ def extract_xia2_space_group(workspace: Workspace, run_id: str, dataset: str):
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
 
-    res = {"A": [],"B": []}
+    res = {"A": None, "B": None}
 
     for f in files:
         if f.name not in wanted:
