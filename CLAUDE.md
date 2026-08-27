@@ -135,7 +135,7 @@ status 0.
 ```
 <WORKSPACE_DIR>/
   <run_id>/                       # e.g. xia2-irrmc-inflate-2700
-    good_master_files.txt         # marker: presence here is what makes a dir a "run"
+    datasets.txt                  # marker: presence here is what makes a dir a "run"
     <dataset>/                    # e.g. 5rvh
       data/
         <sample>/

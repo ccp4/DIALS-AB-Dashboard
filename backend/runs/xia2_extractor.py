@@ -17,7 +17,7 @@ def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     for the common single-sample case, so nothing downstream has to special-case
     which format an id is in.
 
-    Derived from `good_master_files.txt` (one line per sample, path shape
+    Derived from `datasets.txt` (one line per sample, path shape
     `.../{dataset}/data/{sample}_master.h5`, confirmed against every run in the
     workspace) instead of listing every dataset directory and then listing each
     one's `data/` subdirectory — that walk cost ~227 dataset-directory listings
@@ -25,7 +25,7 @@ def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     local `data/{sample}` directory (aborted/incomplete processing), so each
     candidate is still checked with `exists()` before being included.
     """
-    manifest = workspace.read_text(f"{run_id}/good_master_files.txt").splitlines()
+    manifest = workspace.read_text(f"{run_id}/datasets.txt").splitlines()
 
     result = []
     for line in manifest:

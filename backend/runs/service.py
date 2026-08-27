@@ -7,7 +7,7 @@ class RunService:
     def __init__(self, workspace):
         self.workspace = workspace
         self.repo = FileSystemRunRepository()
-        self.xia_marker = "good_master_files.txt"
+        self.xia_marker = "datasets.txt"
 
     def list_runs(self):
         runs = []
