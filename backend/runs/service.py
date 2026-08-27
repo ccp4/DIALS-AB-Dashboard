@@ -7,7 +7,7 @@ class RunService:
     def __init__(self):
         self.workspace = get_workspace()
         self.repo = FileSystemRunRepository()
-        self.xia_marker = "good_master_files.txt"
+        self.xia_marker = "datasets.txt"
 
     def list_run_summaries(self):
         runs = []
@@ -19,9 +19,9 @@ class RunService:
 
             # potential to turn this into an entity, e.g. with size
             runs.append(dir)
-        
+
         return runs
-    
+
     def get_run_summary(self, run_id: str):
         return {
             "run_id" : run_id,
@@ -33,7 +33,7 @@ class RunService:
 
     def get_datasets(self, run_id: str):
         return extract_xia2_datasets(self.workspace, run_id)
-    
+
     def get_xia2_raw(self, run_id: str):
         key = f"{run_id}/raw"
         # if self.repo.exists(key):
@@ -42,7 +42,7 @@ class RunService:
         self.repo.save(key, data)
         clean = clean_xia2_data(data)
         return process_xia2_data(clean)
-    
+
     def get_cc_half_points(self, run_id: str, x: float):
         data = extract_xia2_raw(self.workspace, run_id)
         clean = clean_xia2_data(data)
@@ -56,13 +56,13 @@ class RunService:
         self.repo.save(key, data)
         clean = clean_xia2_data(data)
         return process_xia2_data(clean)
-    
+
     def get_xia2_memory(self, run_id: str):
         key = f"{run_id}/memory"
         data = extract_xia2_memory(self.workspace, run_id)
         self.repo.save(key, data)
         return process_xia2_memory_data(data)
-    
+
     def get_xia2_dataset_memplot(self, run_id:str, dataset: str):
         data = extract_xia2_dataset_memplot(self.workspace, run_id=run_id, dataset=dataset)
         return data
@@ -82,5 +82,4 @@ class RunService:
 
     def run_exists(self, run_id: str):
         return self.workspace.exists(f"{run_id}/{self.xia_marker}")
-    
-        
+
