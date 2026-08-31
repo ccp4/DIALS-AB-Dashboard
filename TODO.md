@@ -123,11 +123,6 @@ All resolved — see [ARCHIVE.md](ARCHIVE.md) section 5.
 Most dispositions here are resolved — see [ARCHIVE.md](ARCHIVE.md) section 6. All items below are
 confirmed to have zero callers; dispositions are from the author.
 
-**Planned work, keep:**
-
-- [ ] [`MemoryOverlayChart`](frontend/src/components/memory/MemoryOverlayChart.jsx) — exploratory but
-      considered useful; keep for now.
-
 **Migration in progress:**
 
 - [ ] [`ChartCard`](frontend/src/components/ChartCard.jsx) — deferred presentation work. See the

@@ -7,17 +7,21 @@ import { variantSeriesStyle } from "../../theme/variant";
  * Peak memory for every dataset, ranked high to low, with all selected runs on
  * shared axes.
  *
- * A and B are ranked independently, so rank i is generally a different dataset
- * in each series — the dataset name is therefore carried on the point and shown
- * in the tooltip rather than on the axis.
+ * Independent ranking (default): A and B are ranked separately, so rank i is
+ * generally a different dataset in each series. Matched ranking: B follows
+ * A's order dataset-for-dataset instead, with a gap where B is missing, so
+ * you can read off a per-dataset A/B difference at the cost of B's own line
+ * no longer being sorted.
  *
- * Colour carries the variant and line style carries the run, since colour
- * cannot carry both.
+ * The dataset name is carried on the point and shown in the tooltip rather
+ * than on the axis. Colour carries the variant and line style carries the
+ * run, since colour cannot carry both.
  *
  * @param {Object<string, Array<{label: string, A: number, B: number}>>} data
  *        Peak memory in MiB, keyed by run id.
+ * @param {"independent"|"matched"} ranking
  */
-function MemoryRankChart({ data }) {
+function MemoryRankChart({ data, ranking = "independent" }) {
 
     const memory = data ?? {};
     const runs = Object.keys(memory);
@@ -32,13 +36,27 @@ function MemoryRankChart({ data }) {
 
         const runData = memory[run] ?? [];
 
-        const ranked = key => runData
-            .filter(d => Number.isFinite(d[key]))
-            .map(d => ({ value: d[key], dataset: d.label }))
-            .sort((a, b) => b.value - a.value);
+        let rankedA, rankedB;
 
-        const rankedA = ranked("A");
-        const rankedB = ranked("B");
+        if (ranking === "matched") {
+            const orderedByA = runData
+                .filter(d => Number.isFinite(d.A))
+                .sort((a, b) => b.A - a.A);
+
+            rankedA = orderedByA.map(d => ({ value: d.A, dataset: d.label }));
+            rankedB = orderedByA.map(d => ({
+                value: Number.isFinite(d.B) ? d.B : null,
+                dataset: d.label,
+            }));
+        } else {
+            const ranked = key => runData
+                .filter(d => Number.isFinite(d[key]))
+                .map(d => ({ value: d[key], dataset: d.label }))
+                .sort((a, b) => b.value - a.value);
+
+            rankedA = ranked("A");
+            rankedB = ranked("B");
+        }
 
         globalMaxRank = Math.max(globalMaxRank, rankedA.length, rankedB.length);
 
@@ -68,7 +86,7 @@ function MemoryRankChart({ data }) {
 
     const options = {
         title: {
-            text: "A vs B Peak Memory Distribution (All Runs)",
+            text: "A vs B Peak Memory Distribution",
             left: "center",
         },
 
@@ -77,7 +95,7 @@ function MemoryRankChart({ data }) {
             axisPointer: { type: "cross" },
             formatter: params => {
                 const rows = params
-                    .filter(p => p.data)
+                    .filter(p => p.data && p.data.value != null)
                     .map(p =>
                         `${p.marker}${p.seriesName}: ${p.data.dataset}` +
                         ` — ${p.data.value.toFixed(0)} MiB`
@@ -92,6 +110,13 @@ function MemoryRankChart({ data }) {
 
         legend: STANDARD_LEGEND,
 
+        grid: {
+            top: 90,
+            left: 70,
+            right: 30,
+            bottom: 80,
+        },
+
         xAxis: {
             type: "category",
             data: ranks,
@@ -104,7 +129,8 @@ function MemoryRankChart({ data }) {
             type: "value",
             name: "Peak memory (MiB)",
             nameLocation: "middle",
-            nameGap: 60,
+            nameGap: 45,
+            nameRotate: 90,
         },
 
         dataZoom: STANDARD_DATA_ZOOM,
@@ -118,8 +144,8 @@ function MemoryRankChart({ data }) {
             notMerge
             lazyUpdate
             style={{
-                height: tokens.chart.height.full,
-                width: "100%",
+                width: tokens.chart.width.main,
+                height: tokens.chart.height.tall,
             }}
         />
     );

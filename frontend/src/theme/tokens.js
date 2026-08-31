@@ -39,7 +39,10 @@ const chart = {
         sparkline: 220,
         panel: 450,
         full: 600,
-        tall: 700,
+        tall: "70vh",
+    },
+    width: {
+        main: "75vw",
     },
     lineWidth: 2,
     symbolSize: 8,

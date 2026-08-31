@@ -250,6 +250,12 @@ migration, 1c chart chrome/layout.
       parity-scatter shape instead. "Better" is `B > A` here (opposite of memory); axis/tooltip
       convert to Å via `invSqToD` while the fit/win-count are computed on raw values. No longer
       belongs in CLAUDE.md's shared-axes confound list.
+- [x] **`MemoryOverlayChart`** — not actually unused (it has a live caller in
+      `MemoryComparisonBlock`'s "A − B" toggle mode); the stale TODO entry is removed. Gained an
+      absolute/percent unit toggle, absorbing `SingleMemoryPlot`'s one distinct idea (relative
+      change) — `SingleMemoryPlot` itself is deleted: redundant with this chart's shape, mislabelled
+      axis (`"A - B"` while actually plotting a percentage), and illegible at sparkline size with
+      ~30 dataset labels on its x-axis.
 
 **Superseded, safe to delete:**
 
