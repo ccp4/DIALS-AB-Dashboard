@@ -170,6 +170,8 @@ migration, 1c chart chrome/layout.
 - [x] Removed leftover `console.log`s across the frontend.
 - [x] Fixed duplicate `get_raw_dataset` route handler name and a stray mid-file `import json`.
 - [x] Eslint sweep — ~35 errors down to 0 (phase 1c).
+- [x] `GET /runs` returned runs in filesystem-dependent order — `RunService.list_runs` now sorts by
+      the marker file's mtime, most recent first.
 
 ## 3. Performance (resolved items)
 

@@ -10,6 +10,8 @@ class RunService:
         self.xia_marker = "datasets.txt"
 
     def list_runs(self):
+        # Most recent first, by the marker file's mtime — `list_dirs` order is
+        # filesystem-dependent, not chronological.
         runs = []
         for dir in self.workspace.list_dirs():
             xia_path = f"{dir}/{self.xia_marker}"
@@ -18,7 +20,9 @@ class RunService:
                 continue
 
             runs.append(dir)
-        
+
+        runs.sort(key=lambda run: self.workspace.resolve(f"{run}/{self.xia_marker}").stat().st_mtime, reverse=True)
+
         return runs
     
     def get_run_metadata(self, run_id: str):
