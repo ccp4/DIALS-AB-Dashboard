@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import DashboardLayout from "./components/DashboardLayout"
-import DataSetsPage from "./pages/DataSetsPage"
-import DataMemoryPage from "./pages/DataMemoryPage"
+import DataQualityPage from "./pages/DataQualityPage"
+import MemoryUsagePage from "./pages/MemoryUsagePage"
 import ExplorePage from "./pages/ExplorePage"
 import DatasetDetailPage from "./pages/DatasetDetailPage"
 import LandingPage from "./pages/LandingPage"
@@ -17,7 +17,7 @@ function App() {
             path="memory"
             element={
               <ErrorBoundary label="Memory and timings">
-                <DataMemoryPage />
+                <MemoryUsagePage />
               </ErrorBoundary>
             }
           />
@@ -25,7 +25,7 @@ function App() {
             path="datasets"
             element={
               <ErrorBoundary label="Data quality">
-                <DataSetsPage />
+                <DataQualityPage />
               </ErrorBoundary>
             }
           />

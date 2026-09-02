@@ -276,9 +276,10 @@ React 19 + Vite + MUI, charts via `echarts-for-react` — ECharts is the only ch
 dependencies in `frontend/`** — declaring one at the root resolves via Node walking up the tree,
 which works locally and fails for anyone who installs only `frontend/`.
 
-Routing in `src/App.jsx`: `/` → `DataMemoryPage` (memory + timings), `/datasets` → `DataSetsPage`
-(data quality), `/explore` → `ExplorePage` (cohort overview), `/explore/dataset/:run/*` →
-`DatasetDetailPage` (per-sample detail view). All render inside `DashboardLayout`.
+Routing in `src/App.jsx`: `/` → `LandingPage` (no `DashboardLayout`). `/memory` → `MemoryUsagePage`
+(memory + timings), `/datasets` → `DataQualityPage` (data quality), `/explore` → `ExplorePage`
+(cohort overview), `/explore/dataset/:run/*` → `DatasetDetailPage` (per-sample detail view) — these
+four render inside `DashboardLayout`.
 
 **`explore/dataset/:run/*` is a splat route** — the composite `dataset/sample` id (always contains
 a literal `/`) is captured by the trailing `*`, the frontend analogue of the backend's
@@ -322,7 +323,7 @@ Two things about these that are easy to break:
 
 1. **They escalate failures to the nearest `ErrorBoundary` by default**, so the fetch must not sit
    in the same component as the control that would let a user recover — a page fetching beside its
-   own run selector loses the selector when the backend is down. `DataMemoryPage`/`DataSetsPage`
+   own run selector loses the selector when the backend is down. `MemoryUsagePage`/`DataQualityPage`
    are split for exactly this reason. Keep that shape, or pass `{throwOnError: false}` and handle
    it inline.
 2. **`useErrorBoundary()` throws if there is no boundary above the caller**, so every consumer must

@@ -4,7 +4,7 @@ import RunProvenance from "../components/RunProvenance";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { useUrlParamList } from "../hooks/useUrlState";
 
-export default function DataMemoryPage(){
+export default function MemoryUsagePage(){
 	const [selectedRuns, setSelectedRuns] = useUrlParamList("runs");
 
 	return(
