@@ -4,7 +4,8 @@ import EChartsStat from "echarts-stat";
 
 import Chart from "./Chart";
 import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../theme/chartChrome";
+import { niceCeil, niceFloor } from "../theme/chartScale";
 
 import { formatValue, metricValue } from "../theme/metricFormat";
 
@@ -62,8 +63,8 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     const pad = (max - min) * 0.05 || Math.abs(max) * 0.05 || 1;
-    const domainMin = min - pad;
-    const domainMax = max + pad;
+    const domainMin = niceFloor(min - pad);
+    const domainMax = niceCeil(max + pad);
 
     const regression =
         points.length >= 2
@@ -88,8 +89,10 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
                 ? points.filter((p) => p.B < p.A).length
                 : null;
 
+    const betterSymbol = metric.better === "higher" ? ">" : "<";
+
     const summaryLines = [
-        betterCount !== null ? `B better on ${betterCount} of ${points.length}` : null,
+        betterCount !== null ? `B ${betterSymbol} A on ${betterCount}/${points.length}` : null,
         median !== null ? `median B/A = ${median.toFixed(3)}` : null,
         regression ? `fit: ${regression.expression}` : null,
     ].filter(Boolean);
@@ -159,56 +162,18 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
     const option = {
         title: { text: metric.label, left: "center" },
 
-        // Grid view (no zoom): a plain band under the plot, never overlapping
-        // data. Expanded view (zoom on): back to a boxed top-right overlay,
-        // since the zoom slider needs the bottom of the chart instead.
+        // Grid view (no zoom): the shared box, bottom-centered so it stays
+        // clear of the plot's own bottom-right corner. Expanded view (zoom
+        // on): the shared bottom-right box — summaryBoxGraphic's default
+        // bottom offset already clears a STANDARD_DATA_ZOOM slider on every
+        // other chart that uses both.
         graphic: summaryLines.length
             ? enableZoom
-                ? [
-                      {
-                          type: "group",
-                          right: 20,
-                          top: 40,
-                          children: [
-                              {
-                                  type: "rect",
-                                  shape: { width: 200, height: summaryLines.length * 20 + 10, r: 5 },
-                                  style: {
-                                      fill: tokens.surface.overlay,
-                                      stroke: tokens.surface.border,
-                                      lineWidth: 1,
-                                      shadowBlur: 5,
-                                      shadowColor: tokens.surface.border,
-                                  },
-                              },
-                              {
-                                  type: "text",
-                                  left: 10,
-                                  top: 5,
-                                  style: {
-                                      text: summaryLines.join("\n"),
-                                      font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                                      fill: tokens.ink.base,
-                                      lineHeight: 20,
-                                  },
-                              },
-                          ],
-                      },
-                  ]
-                : [
-                      {
-                          type: "text",
-                          left: "center",
-                          bottom: 4,
-                          style: {
-                              text: summaryLines.join("\n"),
-                              font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                              fill: tokens.ink.base,
-                              lineHeight: 16,
-                              align: "center",
-                          },
-                      },
-                  ]
+                ? summaryBoxGraphic(summaryLines.join("\n"))
+                : summaryBoxGraphic(summaryLines.join("\n"), {
+                      position: { left: "center", bottom: 4 },
+                      width: 200,
+                  })
             : undefined,
 
         tooltip: {
@@ -252,11 +217,10 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
         // content (tick label width, summary line count): every panel gets
         // the identical plot-box shape. Margins sized for the worst case (3
         // summary lines) so a panel with fewer just has blank space there
-        // rather than a differently-shaped plot area. Expanded (zoom) swaps
-        // top/bottom to match the graphic moving to the top-right and to
-        // leave room at the bottom for the dataZoom slider.
+        // rather than a differently-shaped plot area. Expanded (zoom) needs
+        // extra bottom room for both the box and the dataZoom slider below it.
         grid: enableZoom
-            ? { left: 56, right: 20, top: 90, bottom: 70 }
+            ? { left: 56, right: 20, top: 44, bottom: 110 }
             : { left: 56, right: 20, top: 44, bottom: 92 },
         dataZoom: enableZoom ? STANDARD_DATA_ZOOM : undefined,
         series,

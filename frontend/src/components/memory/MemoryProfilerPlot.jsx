@@ -3,6 +3,7 @@ import { Autocomplete, TextField, Box } from "@mui/material";
 import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens, withAlpha } from "../../theme/tokens";
+import { niceCeil } from "../../theme/chartScale";
 import { useApi } from "../../hooks/useApi";
 import { useUrlParam } from "../../hooks/useUrlState";
 
@@ -54,8 +55,8 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
   // otherwise each chart auto-scales to its own data and a
   // shorter/lower-peak run looks misleadingly similar to a
   // longer/higher-peak one.
-  const xMax = Math.max(relativeDuration(memoryData?.A), relativeDuration(memoryData?.B)) * 1.05 || 1;
-  const yMax = Math.max(maxMemory(memoryData?.A), maxMemory(memoryData?.B)) * 1.05 || 1;
+  const xMax = niceCeil(Math.max(relativeDuration(memoryData?.A), relativeDuration(memoryData?.B)) * 1.05 || 1);
+  const yMax = niceCeil(Math.max(maxMemory(memoryData?.A), maxMemory(memoryData?.B)) * 1.05 || 1);
 
   if (loadingDatasets) return <LoadingState label="Loading datasets..." />;
 
@@ -117,6 +118,8 @@ const markAreas = commands.map(cmd => {
       xAxis: {
         type: "value",
         name: "Time (s)",
+        nameLocation: "middle",
+        nameGap: 30,
         min: 0,
         max: xMax
       },
@@ -124,6 +127,9 @@ const markAreas = commands.map(cmd => {
       yAxis: {
         type: "value",
         name: "Memory (MiB)",
+        nameLocation: "middle",
+        nameGap: 45,
+        nameRotate: 90,
         min: 0,
         max: yMax
       },
@@ -201,7 +207,7 @@ const markAreas = commands.map(cmd => {
               xMax,
               yMax
             )}
-            style={{ height: tokens.chart.height.panel }}
+            style={{ height: tokens.chart.height.panel, width: tokens.chart.width.main }}
           />
 
           <Chart
@@ -213,7 +219,7 @@ const markAreas = commands.map(cmd => {
               xMax,
               yMax
             )}
-            style={{ height: tokens.chart.height.panel, marginTop: 30 }}
+            style={{ height: tokens.chart.height.panel, width: tokens.chart.width.main, marginTop: 30 }}
           />
         </>
       )}

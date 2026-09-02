@@ -89,7 +89,7 @@ function RunMetricPanel({ title, run_ids, metric }) {
 
                 <Grid container spacing={2}>
                     {run_ids.map(runId => (
-                        <Grid size={{ xs: 12, md: 6 }} key={runId}>
+                        <Grid size={{ xs: 12, md: run_ids.length === 1 ? 12 : 6 }} key={runId}>
                             <RunPanel
                                 runId={runId}
                                 metric={metric}
@@ -97,6 +97,7 @@ function RunMetricPanel({ title, run_ids, metric }) {
                                 onDatasetChange={(dataset) =>
                                     handleDatasetChange(runId, dataset)
                                 }
+                                single={run_ids.length === 1}
                             />
                         </Grid>
                     ))}

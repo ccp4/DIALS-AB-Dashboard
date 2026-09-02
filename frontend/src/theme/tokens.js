@@ -37,12 +37,14 @@ const space = {
 const chart = {
     height: {
         sparkline: 220,
-        panel: 450,
+        panel: "60vh",
         full: 600,
         tall: "70vh",
+        single: "80vh",
     },
     width: {
         main: "75vw",
+        single: "60vw",
     },
     lineWidth: 2,
     symbolSize: 8,

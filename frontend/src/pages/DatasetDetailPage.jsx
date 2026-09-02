@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 
 import DatasetChart from "../components/data-quality/DatasetChart";
@@ -50,12 +50,14 @@ export default function DatasetDetailPage() {
                 <p>No cohort row found for {dataset}.</p>
             )}
 
+            <Typography variant="h6">Resolution estimates from dials.estimate_resolution</Typography>
             <ErrorBoundary label="CC½ curve" resetKeys={[run, dataset]}>
-                <DatasetChart data={rawData} urlKey="raw" />
+                <DatasetChart data={rawData} urlKey="raw" single />
             </ErrorBoundary>
 
+            <Typography variant="h6">Merging statistics from xia2.compare_merging_stats</Typography>
             <ErrorBoundary label="Comparison series" resetKeys={[run, dataset]}>
-                <DatasetChart data={comparisonData} urlKey="comparison" />
+                <DatasetChart data={comparisonData} urlKey="comparison" single />
             </ErrorBoundary>
 
             <ErrorBoundary label="Memory profile" resetKeys={[run, dataset]}>

@@ -3,7 +3,8 @@ import EChartsStat from "echarts-stat";
 import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { niceCeil } from "../../theme/chartScale";
 import { useApi } from "../../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {
@@ -25,7 +26,7 @@ function CumulativeTimeTaken({ run }) {
     return <p>No comparable datasets</p>;
   }
 
-  const maxValue = Math.max(...points.flatMap((p) => [p.A, p.B]), 1);
+  const maxValue = niceCeil(Math.max(...points.flatMap((p) => [p.A, p.B]), 1));
 
   // Regression needs at least two points to fit
   const regression =
@@ -47,7 +48,7 @@ function CumulativeTimeTaken({ run }) {
   const bFaster = points.filter((p) => p.B < p.A).length;
 
   const regressionSummary =
-    `B faster on ${bFaster} of ${points.length}` +
+    `B < A on ${bFaster}/${points.length}` +
     `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
     `${regression ? `\nfit: ${regression.expression}` : ""}`;
 
@@ -98,43 +99,7 @@ function CumulativeTimeTaken({ run }) {
       text: "Cumulative Runtime: A vs B",
     },
 
-    graphic: regressionSummary
-      ? [
-          {
-            type: "group",
-            right: 20,
-            top: 200,
-            children: [
-              {
-                type: "rect",
-                shape: {
-                  width: 220,
-                  height: 80,
-                  r: 5,
-                },
-                style: {
-                  fill: tokens.surface.overlay,
-                  stroke: tokens.surface.border,
-                  lineWidth: 1,
-                  shadowBlur: 5,
-                  shadowColor: tokens.surface.border,
-                },
-              },
-              {
-                type: "text",
-                left: 10,
-                top: 10,
-                style: {
-                  text: regressionSummary,
-                  font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                  fill: tokens.ink.base,
-                  lineHeight: 20,
-                },
-              },
-            ],
-          },
-        ]
-      : undefined,
+    graphic: regressionSummary ? summaryBoxGraphic(regressionSummary) : undefined,
 
     tooltip: {
       trigger: "item",
@@ -155,6 +120,8 @@ function CumulativeTimeTaken({ run }) {
     xAxis: {
       type: "value",
       name: "A Runtime (s)",
+      nameLocation: "middle",
+      nameGap: 30,
       nameTextStyle: { color: tokens.variant.A, fontWeight: 600 },
       min: 0,
       max: maxValue,
@@ -164,6 +131,9 @@ function CumulativeTimeTaken({ run }) {
     yAxis: {
       type: "value",
       name: "B Runtime (s)",
+      nameLocation: "middle",
+      nameGap: 45,
+      nameRotate: 90,
       nameTextStyle: { color: tokens.variant.B, fontWeight: 600 },
       min: 0,
       max: maxValue,
@@ -179,7 +149,7 @@ function CumulativeTimeTaken({ run }) {
     series,
   };
 
-  return <Chart option={option} style={{ height: tokens.chart.height.full }} />;
+  return <Chart option={option} style={{ height: tokens.chart.height.tall, width: tokens.chart.width.main }} />;
 }
 
 export default CumulativeTimeTaken;

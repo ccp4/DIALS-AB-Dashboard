@@ -10,8 +10,11 @@ import { useUrlParam } from "../../hooks/useUrlState";
  * @param {string} urlKey Makes the trace-selection URL param unique when
  *        more than one DatasetChart is on screen at once (e.g. one per
  *        selected run, or raw vs comparison).
+ * @param {boolean} [single] Bigger, dedicated sizing (matches MemoryABChart's
+ *        single-run case) — true when this is the only DatasetChart of its
+ *        kind on screen (one run selected, or the per-sample detail page).
  */
-function DatasetChart({ data, urlKey }) {
+function DatasetChart({ data, urlKey, single = false }) {
   const dataset = Array.isArray(data) ? data[0] : data;
   const keys = useMemo(() => Object.keys(dataset ?? {}), [dataset]);
   const [selectedKey, setSelectedKey] = useUrlParam(`trace_${urlKey}`);
@@ -124,10 +127,9 @@ function DatasetChart({ data, urlKey }) {
 
       <Chart
         option={option}
-        style={{
-          height: tokens.chart.height.full,
-          width: "40vw"
-        }}
+        style={single
+          ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
+          : { height: tokens.chart.height.panel, width: "100%" }}
         notMerge={true}
         lazyUpdate={true}
       />

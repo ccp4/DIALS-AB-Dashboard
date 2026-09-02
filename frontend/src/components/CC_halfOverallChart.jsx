@@ -2,7 +2,8 @@ import EChartsStat from "echarts-stat";
 
 import Chart from "./Chart";
 import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../theme/chartChrome";
+import { niceCeil } from "../theme/chartScale";
 
 // Convert (1/d)^2 -> d
 function invSqToD(v) {
@@ -47,11 +48,17 @@ function CC_halfOverallChart({ data }) {
 
     if (!runs.length) return null;
 
+    // A single run gets a bigger, dedicated chart; multiple runs share the grid.
+    const chartStyle = runs.length === 1
+        ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
+        : { height: tokens.chart.height.panel, width: "100%" };
+
     return (
         <div
             style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+                justifyItems: runs.length === 1 ? "center" : "stretch",
                 gap: "20px",
             }}
         >
@@ -70,10 +77,10 @@ function CC_halfOverallChart({ data }) {
                         B: bLookup[dataset],
                     }));
 
-                const maxValue = Math.max(
+                const maxValue = niceCeil(Math.max(
                     ...points.flatMap(p => [p.A, p.B]),
                     1
-                );
+                ));
 
                 const regression = EChartsStat.regression(
                 "linear",
@@ -96,7 +103,7 @@ function CC_halfOverallChart({ data }) {
                 const bBetter = points.filter(p => p.B > p.A).length;
 
                 const regressionSummary =
-                    `B better on ${bBetter} of ${points.length}` +
+                    `B > A on ${bBetter}/${points.length}` +
                     `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
                     `\nfit: ${regression.expression}`;
 
@@ -170,41 +177,7 @@ function CC_halfOverallChart({ data }) {
                         left: "center",
                     },
 
-                        graphic: [
-                        {
-                            type: "group",
-                            right: 20,
-                            top: 200,
-                            children: [
-                                {
-                                    type: "rect",
-                                    shape: {
-                                        width: 220,
-                                        height: 80,
-                                        r: 5,
-                                    },
-                                    style: {
-                                        fill: tokens.surface.overlay,
-                                        stroke: tokens.surface.border,
-                                        lineWidth: 1,
-                                        shadowBlur: 5,
-                                        shadowColor: tokens.surface.border,
-                                    },
-                                },
-                                {
-                                    type: "text",
-                                    left: 10,
-                                    top: 10,
-                                    style: {
-                                        text: regressionSummary,
-                                        font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                                        fill: tokens.ink.base,
-                                        lineHeight: 20,
-                                    },
-                                },
-                            ],
-                        },
-                    ],
+                        graphic: summaryBoxGraphic(regressionSummary),
 
                     tooltip: {
                         trigger: "item",
@@ -242,6 +215,7 @@ function CC_halfOverallChart({ data }) {
                         name: "B (Å)",
                         nameLocation: "middle",
                         nameGap: 40,
+                        nameRotate: 90,
                         nameTextStyle: {
                             color: tokens.variant.B,
                             fontWeight: 600,
@@ -267,10 +241,7 @@ function CC_halfOverallChart({ data }) {
                         option={options}
                         notMerge
                         lazyUpdate
-                        style={{
-                            height: tokens.chart.height.panel,
-                            width: "100%",
-                        }}
+                        style={chartStyle}
                     />
                 );
             })}

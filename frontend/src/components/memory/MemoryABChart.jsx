@@ -2,7 +2,8 @@ import EChartsStat from "echarts-stat";
 
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { niceCeil } from "../../theme/chartScale";
 
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit
@@ -21,11 +22,17 @@ function MemoryABChart({ data }) {
 
     if (!runs.length) return null;
 
+    // A single run gets a bigger, dedicated chart; multiple runs share the grid.
+    const chartStyle = runs.length === 1
+        ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
+        : { height: tokens.chart.height.panel, width: "100%" };
+
     return (
         <div
             style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(auto-fit, minmax(500px, 1fr))",
+                justifyItems: runs.length === 1 ? "center" : "stretch",
                 gap: "20px",
             }}
         >
@@ -41,10 +48,10 @@ function MemoryABChart({ data }) {
                         B: d.B,
                     }));
 
-                const maxValue = Math.max(
+                const maxValue = niceCeil(Math.max(
                     ...points.flatMap(p => [p.A, p.B]),
                     1
-                );
+                ));
 
                 const regression = EChartsStat.regression(
                 "linear",
@@ -67,7 +74,7 @@ function MemoryABChart({ data }) {
                 const bSmaller = points.filter(p => p.B < p.A).length;
 
                 const regressionSummary =
-                    `B smaller on ${bSmaller} of ${points.length}` +
+                    `B < A on ${bSmaller}/${points.length}` +
                     `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
                     `\nfit: ${regression.expression}`;
 
@@ -137,45 +144,11 @@ function MemoryABChart({ data }) {
 
                 const options = {
                     title: {
-                        text: `${run}: A vs B`,
+                        text: `${run}: A vs B Memory per Dataset`,
                         left: "center",
                     },
 
-                        graphic: [
-                        {
-                            type: "group",
-                            right: 20,
-                            top: 200,
-                            children: [
-                                {
-                                    type: "rect",
-                                    shape: {
-                                        width: 220,
-                                        height: 80,
-                                        r: 5,
-                                    },
-                                    style: {
-                                        fill: tokens.surface.overlay,
-                                        stroke: tokens.surface.border,
-                                        lineWidth: 1,
-                                        shadowBlur: 5,
-                                        shadowColor: tokens.surface.border,
-                                    },
-                                },
-                                {
-                                    type: "text",
-                                    left: 10,
-                                    top: 10,
-                                    style: {
-                                        text: regressionSummary,
-                                        font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                                        fill: tokens.ink.base,
-                                        lineHeight: 20,
-                                    },
-                                },
-                            ],
-                        },
-                    ],
+                        graphic: summaryBoxGraphic(regressionSummary),
 
                     tooltip: {
                         trigger: "item",
@@ -213,6 +186,7 @@ function MemoryABChart({ data }) {
                         name: "B",
                         nameLocation: "middle",
                         nameGap: 40,
+                        nameRotate: 90,
                         nameTextStyle: {
                             color: tokens.variant.B,
                             fontWeight: 600,
@@ -237,10 +211,7 @@ function MemoryABChart({ data }) {
                         option={options}
                         notMerge
                         lazyUpdate
-                        style={{
-                            height: tokens.chart.height.panel,
-                            width: "100%",
-                        }}
+                        style={chartStyle}
                     />
                 );
             })}
