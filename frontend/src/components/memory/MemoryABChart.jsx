@@ -169,7 +169,7 @@ function MemoryABChart({ data }) {
 
                     xAxis: {
                         type: "value",
-                        name: "A",
+                        name: "A (MiB)",
                         nameLocation: "middle",
                         nameGap: 30,
                         nameTextStyle: {
@@ -183,9 +183,9 @@ function MemoryABChart({ data }) {
 
                     yAxis: {
                         type: "value",
-                        name: "B",
+                        name: "B (MiB)",
                         nameLocation: "middle",
-                        nameGap: 40,
+                        nameGap: 50,
                         nameRotate: 90,
                         nameTextStyle: {
                             color: tokens.variant.B,

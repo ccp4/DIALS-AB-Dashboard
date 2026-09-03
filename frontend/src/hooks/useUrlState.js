@@ -100,7 +100,10 @@ export function useUrlParamMap(key) {
     const setValue = useCallback(next => {
         setParams(prev => {
             const updated = new URLSearchParams(prev);
-            const entries = Object.entries(next ?? {});
+            // A cleared selection (null/undefined) drops the entry entirely,
+            // matching useUrlParam — otherwise it round-trips as the literal
+            // string "null" and gets used as if it were a real value.
+            const entries = Object.entries(next ?? {}).filter(([, v]) => v != null && v !== "");
 
             if (entries.length) {
                 updated.set(key, entries.map(([k, v]) => `${k}:${v}`).join(","));
