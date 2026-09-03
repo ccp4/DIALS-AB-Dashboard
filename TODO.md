@@ -16,14 +16,14 @@ intact) once it reaches `[x]` and needs no further action; do not delete history
 
 ## 0. Order of work
 
-> **Resuming? Start here.** Phases 0 through 4 are complete (backend pipeline, frontend plumbing,
-> theme, provenance, the views — see [ARCHIVE.md](ARCHIVE.md) section 0). `MemoryABChart` and
-> `MemoryRankChart` are *not* superseded by 8.3 and both stay — each shows all selected runs at once
-> on one page load, which the single-run-scoped `/explore` doesn't do. `CC_halfOverallChart` moved
-> off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint (section 6), not onto the cohort
-> table as originally planned — see that entry for why. **This left `/raw` (the whole-run route)
-> with zero frontend consumers, but it stays deliberately** — kept as a dev/test route rather than
-> retired (see section 7). Phase 5 is down to one item now: user-facing docs.
+> **Resuming? Start here.** Phases 0 through 5 are all complete (backend pipeline, frontend
+> plumbing, theme, provenance, the views, user-facing docs — see [ARCHIVE.md](ARCHIVE.md) section
+> 0). `MemoryABChart` and `MemoryRankChart` are *not* superseded by 8.3 and both stay — each shows
+> all selected runs at once on one page load, which the single-run-scoped `/explore` doesn't do.
+> `CC_halfOverallChart` moved off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint (section
+> 6), not onto the cohort table as originally planned — see that entry for why. **This left `/raw`
+> (the whole-run route) with zero frontend consumers, but it stays deliberately** — kept as a
+> dev/test route rather than retired (see section 7).
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -75,13 +75,10 @@ memory across all selected runs on one shared chart. Both show every selected ru
 switching `/explore`'s single-run selector back and forth does not replicate. Do not re-propose
 retiring either without addressing this.
 
-### Phase 5 — user-facing docs. The only remaining item
+### Phase 5 — user-facing docs. Done — see ARCHIVE.md section 0
 
 Delta distributions, cross-filtered linked views, and `/raw` pagination were all reassessed and
 dropped as unnecessary.
-
-- [ ] User-facing docs on what the charts mean — genuinely last; written earlier they'd document
-      views that are about to change.
 
 ---
 
@@ -110,9 +107,9 @@ gap — see ARCHIVE.md section 4 for both.
 - [ ] **No tests of any kind**, on a project whose entire value is numerical correctness. The
       `"fit"` series-name coupling (CLAUDE.md's series contract) is exactly the kind of thing a
       small contract test would pin down. Partially addressed: `backend/test_cohort.py` (phase 2,
-      section 0) is the first test in the
-      repo, covering `/cohort`'s shape and the 404-on-unknown-run fix. Everything else — the series
-      contract itself, the numeric extractors, the frontend — is still untested.
+      section 0) is the first test in the repo, covering `/cohort`'s shape and the
+      404-on-unknown-run fix. Everything else — the series contract itself, the numeric extractors,
+      the frontend — is still untested.
 
 ## 5. Product gaps — what stops this being a useful dashboard
 

@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Card, CardActionArea, CardContent, Dialog, DialogContent, Grid, Tooltip, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
-import LoadingState from "./LoadingState";
+import LoadingState from "../LoadingState";
 import MetricScatter from "./MetricScatter";
-import { goToDataset } from "../navigation";
-import { tokens } from "../theme/tokens";
-import { useApi } from "../hooks/useApi";
+import { goToDataset } from "../../navigation";
+import { tokens } from "../../theme/tokens";
+import { useApi } from "../../hooks/useApi";
 
 /**
  * The small-multiples cohort overview — one MetricScatter per registry

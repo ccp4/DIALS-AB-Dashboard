@@ -1,4 +1,4 @@
-from runs.ab_pair import ab_status
+from models.ab_pair import ab_status
 
 
 def _clean_trace_data(raw_data):

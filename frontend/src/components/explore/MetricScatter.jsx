@@ -2,12 +2,12 @@ import { memo } from "react";
 
 import EChartsStat from "echarts-stat";
 
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../theme/chartChrome";
-import { niceCeil, niceFloor } from "../theme/chartScale";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { niceCeil, niceFloor } from "../../theme/chartScale";
 
-import { formatValue, metricValue } from "../theme/metricFormat";
+import { formatValue, metricValue } from "../../theme/metricFormat";
 
 // Axis ticks need less precision than the raw data — an untruncated float
 // (e.g. from a padded min/max) eats horizontal space and shrinks the plot.

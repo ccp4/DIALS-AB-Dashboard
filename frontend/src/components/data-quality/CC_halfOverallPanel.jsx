@@ -1,6 +1,6 @@
 import CC_halfOverallChart from "./CC_halfOverallChart";
-import LoadingState from "./LoadingState";
-import { useApiAll } from "../hooks/useApi";
+import LoadingState from "../LoadingState";
+import { useApiAll } from "../../hooks/useApi";
 
 /**
  * Fetches the CC½ threshold crossing for each selected run and hands it to

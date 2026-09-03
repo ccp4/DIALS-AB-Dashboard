@@ -8,7 +8,7 @@ import ErrorBoundary from "../components/ErrorBoundary";
 import LoadingState from "../components/LoadingState";
 import MemoryProfilerPlot from "../components/memory/MemoryProfilerPlot";
 import RunProvenance from "../components/RunProvenance";
-import WhatMovedStrip from "../components/WhatMovedStrip";
+import WhatMovedStrip from "../components/explore/WhatMovedStrip";
 import { useApi } from "../hooks/useApi";
 import { goToDataset } from "../navigation";
 

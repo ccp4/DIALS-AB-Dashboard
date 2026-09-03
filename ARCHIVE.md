@@ -132,6 +132,12 @@ migration, 1c chart chrome/layout.
 - [x] `CC_halfOverallChart` moved off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint
       (kept separate from `/cohort` — different DIALS computation).
 
+### Phase 5 — user-facing docs. Done
+
+- [x] Added a "What this dashboard shows" section to the README — the A/B convention, the
+      cross-cutting rules (direction of "better" varies, missing data is shown not hidden, every
+      comparison reports win count + median ratio), and a short per-page chart rundown.
+
 ---
 
 ## 1. Bugs — wrong output or crashes (resolved)
@@ -216,6 +222,20 @@ migration, 1c chart chrome/layout.
       needed `extract_xia2_unit_cell`/`extract_xia2_space_group` fixed to return `None` instead of
       `[]` for a missing variant). `/cumulative` reuses `CCHalfResponse` (identical shape). The
       whole-run `/raw`/`/comparison` stay untyped — confirmed zero frontend consumers.
+- [x] **Chart sizing, axis labels and the regression-summary box were inconsistent across every
+      "single" chart** — added `chartScale.js` (round axis bounds to 2 sig figs instead of raw
+      values) and `chartChrome.js`'s `summaryBoxGraphic` (one shared box builder, teal outline,
+      height from line count, replacing four near-duplicate `graphic` blocks). Unified sizing
+      (bigger when one run, `tokens.chart.width/height.single`) and vertical y-axis labels across
+      `MemoryABChart`, `CC_halfOverallChart`, `MemoryProfilerPlot`, `CumulativeTimeTaken`, and the
+      Raw/Comparison charts (`DatasetChart` gained a `single` prop).
+- [x] **A landing page** — new `/` route (`LandingPage.jsx`, no `DashboardLayout`) with a big button
+      per view and a one-line description each; Memory Usage moved off `/` onto `/memory` to make
+      room. Added `BackButton.jsx` (browser-history back) to `DashboardLayout`'s topbar.
+- [x] **`setup.sh` needed manual steps beyond running it** — now resolves its own directory instead
+      of assuming `pwd`, copies both `.env.copy` files if missing, prompts for `WORKSPACE_DIR` (with
+      path tab-completion) only when it's blank, and uses `venv/bin/pip` directly instead of
+      `source activate`.
 
 ## 5. Product gaps (resolved items)
 
@@ -235,6 +255,9 @@ migration, 1c chart chrome/layout.
       row for every known sample (not just ones with ≥1 file present), each carrying an `ab_status`
       `status`. `MemoryPanels.jsx` shows a coverage line per run. `MemoryABChart`/etc. untouched —
       same array shape, now just complete.
+- [x] **Coverage lines showed counts but not which datasets were missing** — added a `ⓘ` hover
+      tooltip on Explore's and Memory Usage's coverage lines listing the actual missing
+      dataset/sample names, split by missing A vs missing B.
 
 ## 6. Unused code — resolved
 

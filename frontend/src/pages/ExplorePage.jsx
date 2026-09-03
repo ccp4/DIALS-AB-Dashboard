@@ -1,7 +1,7 @@
 import { Autocomplete, Box, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
-import CohortGrid from "../components/CohortGrid";
+import CohortGrid from "../components/explore/CohortGrid";
 import DatasetSelector from "../components/data-quality/DatasetSelector";
 import ErrorBoundary from "../components/ErrorBoundary";
 import RunProvenance from "../components/RunProvenance";

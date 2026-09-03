@@ -38,40 +38,6 @@ None of this is derivable from the code; all of it affects correctness.
   `MemoryABChart`/`CumulativeTimeTaken` report **win count + median ratio** instead, fit kept as a
   secondary line. Keep that shape for any new A/B summary.
 
-## Known issues and planned work
-
-[TODO.md](TODO.md) is the active backlog — bugs, quick fixes, performance, architecture, product
-gaps, and disposition of every unused symbol. **[ARCHIVE.md](ARCHIVE.md)** holds everything `[x]`,
-mirroring TODO.md's section numbers exactly. Move an item there once done, don't delete it.
-
-Read TODO.md before proposing changes:
-
-- **Section 0 is the sequence** — orders items into phases 0–5 by least-wasted-work, not "bugs
-  first". Some bugs are deliberately left because the code holding them is about to be deleted;
-  some cheap items are delayed to avoid doing them twice. **Start from section 0.**
-- **Section 6** records the disposition of every zero-caller symbol. Check before deleting
-  anything dead-looking.
-- **Section 7** lists things that are deliberate and must not be "fixed".
-- **Section 8** is the agreed feature direction — exploration (why B differs from A), ordered by
-  dependency; 8.1 (the cohort table) is the backbone everything else reads from.
-- Load-bearing fixes done: blocking event loop, mislabelled `MemoryABChart` axis, gradient-only
-  headline (phase 0); silent 200 on unknown run (phase 2); multi-sample collision (phase 2b —
-  `/raw`/`/memory`/`/comparison`/`/cohort` all sample-precise now). Remaining: old endpoints still
-  silently drop incomplete A/B pairs (`/cohort` reports coverage correctly; phase 4 is expected to
-  move consumers onto it).
-
-**Where the work is up to:** phases 0–3 complete. `/runs/{run_id}/cohort` is live (per-
-`(dataset, sample)` rows, backend-owned metric registry, coverage reported). `/runs/{run_id}`
-carries `builds`, shown by `RunProvenance.jsx`. **Phase 4 (the views) is underway:** 8.2
-`MetricScatter`, 8.3 `CohortGrid`/`/explore`, 8.5 outlier colouring, 8.4 `DatasetDetailPage` are
-live. 8.8 (the workbench) was built, tried, reverted — see ARCHIVE.md's 8.8 entry. **Next: move
-`CC_halfOverallChart` off `/raw`** onto the cohort table. `MemoryABChart`/`MemoryRankChart` are
-not superseded by 8.3 — `/explore` is single-run-scoped, while both of these show every selected
-run at once.
-
-Keep it current: tick fixes, and add new items to the right section **and** to section 0's
-sequence — an item with no phase is one that will be done out of order.
-
 ## Commands
 
 **`npm run dev` from the repo root** starts Vite (`:5173`) + uvicorn (`:8000`) together via
@@ -81,7 +47,8 @@ sequence — an item with no phase is one that will be done out of order.
 npm run dev
 ```
 
-First-time setup (creates the venv, installs deps, then runs `npm run dev`):
+First-time setup (creates the venv, installs deps, copies `.env` files, prompts for
+`WORKSPACE_DIR`, then runs `npm run dev`):
 
 ```bash
 ./setup.sh
@@ -123,6 +90,41 @@ gitignored scratch file, not a test runner. Otherwise, verification means runnin
 
 **Deploying needs both set and pointing at each other** — a mismatch surfaces as `ApiError` with
 status 0.
+
+## Project structure
+
+Backend (`backend/`):
+
+```
+main.py                  # FastAPI app, CORS, GZip, timing middleware
+config.py                # env loading
+routers/runs.py          # HTTP surface — thin, no business logic
+models/responses.py      # Pydantic response models
+models/ab_pair.py        # ABPair[T] — the shared "A/B, either may be missing" type
+runs/service.py          # RunService — orchestrates extractor + processor
+runs/xia2_extractor.py   # all workspace I/O and file parsing
+runs/xia2_processor.py   # reshapes extracted data into chart-ready series
+runs/metrics.py          # the metric registry (label/unit/formatter/better)
+runs/dataset_id.py       # DatasetSampleId — the shared "dataset/sample" id type
+storage/local.py         # FileSystemRunRepository, a JSON cache (see below)
+workspace/local.py       # LocalWorkspace — reads WORKSPACE_DIR
+```
+
+Frontend (`frontend/src/`):
+
+```
+App.jsx                    # routes
+navigation.js               # goToDataset — the one cross-page navigation helper
+pages/                      # one file per route (LandingPage, MemoryUsagePage, DataQualityPage,
+                            # ExplorePage, DatasetDetailPage)
+components/                 # shared components (Chart.jsx, ErrorBoundary.jsx, RunProvenance.jsx, ...)
+components/memory/          # Memory Usage page's components
+components/data-quality/    # Data Quality page's components
+components/explore/         # Explore and Dataset Detail pages' components
+hooks/                      # useApi/useApiAll, useUrlParam/useUrlParamList/useUrlParamMap
+theme/                      # tokens.js, chartChrome.js, chartScale.js, variant.js, metricFormat.js
+api/client.js               # the one fetch wrapper
+```
 
 ## Two separate data roots
 
@@ -173,7 +175,7 @@ Two consequences worth internalising:
    route's requests. `routers/runs.py` relies on this ordering — don't reorder without
    re-verifying.
 
-## Backend pipeline
+## Backend
 
 `routers/runs.py` → `runs/service.py` (`RunService`) → `runs/xia2_extractor.py` → `runs/xia2_processor.py`
 
@@ -258,15 +260,45 @@ better or worse — don't fill in a guess.
 `extract_xia2_cumulative_timing`, keyed by the same composite `"dataset/sample"` id — exact per
 sample, including for the 5 multi-sample datasets.
 
-**`routers/models.py` (`CohortResponse` etc.)** is the first Pydantic response model in the repo,
-now covering every route with a live frontend consumer — including `/memory`, `/cumulative`,
-`/info/{dataset}`, and the dataset-scoped `/dataset/{dataset}/raw`/`comparison`. Only the whole-run
-`/raw` and `/comparison` stay untyped dicts — confirmed dev/test routes with zero consumers.
+**`models/` holds every Pydantic model** (`models/responses.py` for API response models,
+`models/ab_pair.py` for `ABPair[T]`), re-exported from `models/__init__.py` so callers do
+`from models import X`. `CohortResponse` etc. now cover every route with a live frontend
+consumer — including `/memory`, `/cumulative`, `/info/{dataset}`, and the dataset-scoped
+`/dataset/{dataset}/raw`/`comparison`. Only the whole-run `/raw` and `/comparison` stay untyped
+dicts — confirmed dev/test routes with zero consumers.
 
-**`runs/ab_pair.py`'s `ABPair[T]`** is the one reusable type for "two comparable values, either
+**`models/ab_pair.py`'s `ABPair[T]`** is the one reusable type for "two comparable values, either
 side may be missing" — `status` is a computed field derived from A/B, never stored, so it can't
 drift. `CohortRow` inherits from it. Reach for it before reinventing the `{"A":..., "B":...}` +
 manual status-branch pattern anywhere else.
+
+### Extending the backend: adding a new graph
+
+Which pattern to follow depends on the shape of the data the graph needs:
+
+1. **A `xia2-summary.dat` metric, one value per (dataset, sample)** — the cheapest case. Add an
+   entry to `METRICS` in `runs/metrics.py` (`key`/`label`/`unit`/`formatter`/`better`); extend
+   `_parse_xia2_summary` if the field isn't parsed yet. `build_cohort` joins it automatically, so it
+   appears in `/cohort`, `CohortGrid`, and `WhatMovedStrip` with no frontend change.
+2. **A single computed value per (dataset, sample, variant), not from `xia2-summary.dat`** (like
+   `cc_half`'s `d_min`, peak memory, cumulative runtime) — a new extractor function in
+   `xia2_extractor.py` that iterates `extract_xia2_datasets`, resolves each sample's path via
+   `DatasetSampleId`/`_dataset_sample_path`, and returns `{"A": [[id, value], ...], "B": [...]}` —
+   reuse `CCHalfResponse`'s shape/model directly if it fits. Add a route in `routers/runs.py` and
+   wire it through `service.py`. Join it into `build_cohort` too if it belongs in the cohort table
+   (the way `extract_xia2_memory`/`extract_xia2_cumulative_timing` are).
+3. **A full multi-trace series per dataset** (like Raw/Comparison's resolution-dependent curves) —
+   reuse `_apache_series_builder`/`_extract_json_files` if the source is DIALS JSON shaped like the
+   existing ones; otherwise write a comparable extractor that still emits `{"name": ..., "data":
+   [[x, y], ...]}` per trace, since `DatasetChart` depends on that shape (see "The series contract").
+4. **A per-sample detail lookup that isn't a series** (like `/info/{dataset}`'s unit cell/spacegroup)
+   — a small extractor reading one file per variant; use `ABPair[T]` for the response if either
+   side may be missing.
+
+Whichever shape: build the path directly — `<run_id>/<dataset>/data/<sample>/{A,B}/<filename>` —
+rather than walking and filtering (see "Extractor" above), add a Pydantic model in
+`models/responses.py`, and give any new route the same `_ensure_run_exists`/`_ensure_dataset_exists`
+guard every other route has.
 
 ## Frontend
 
@@ -275,6 +307,8 @@ React 19 + Vite + MUI, charts via `echarts-for-react` — ECharts is the only ch
 `frontend/package.json`; the root `package.json` holds only `concurrently`. **Keep frontend
 dependencies in `frontend/`** — declaring one at the root resolves via Node walking up the tree,
 which works locally and fails for anyone who installs only `frontend/`.
+
+### Routing
 
 Routing in `src/App.jsx`: `/` → `LandingPage` (no `DashboardLayout`). `/memory` → `MemoryUsagePage`
 (memory + timings), `/datasets` → `DataQualityPage` (data quality), `/explore` → `ExplorePage`
@@ -290,6 +324,8 @@ through one `goToDataset(navigate, run, dataset)` helper in `src/navigation.js`:
 file exporting anything besides its default component trips this repo's
 `react-refresh/only-export-components` lint rule.
 
+### Error boundaries
+
 `src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback
 — used per-route (`App.jsx`) and per-chart. **Wrap new charts in it** — one throwing component
 used to blank the whole page, and with multi-second responses a blank page is indistinguishable
@@ -300,14 +336,7 @@ instead of leaving the error stuck.
 `useErrorBoundary().showBoundary()`, not because React catches them. Anything that throws
 asynchronously outside those hooks still needs forwarding by hand.
 
-**`MetricScatter` uses A/B differently from every other chart here.** Elsewhere, A/B are two
-separate series each in a fixed colour (`tokens.variant.A`/`.B`). `MetricScatter` puts A on the
-x-axis and B on the y-axis: one point is one sample carrying both an A and a B value, so there is
-no per-variant series to colour. Only the axis *names* use the tokens; the scatter points are a
-plain single colour. A chart that treats a `MetricScatter` point as "the A series" and colours it
-from `tokens.variant` is misapplying a convention built for a different chart shape.
-
-## Data fetching
+### Data fetching
 
 **One idiom. Do not add a bare `fetch` anywhere.**
 
@@ -340,10 +369,13 @@ on the aggregate `loading` boolean blanks already-loaded keys every time a new o
 The `data-quality/use*.js` hooks are three-line named wrappers over `useApi` — a naming
 convenience, not a second idiom.
 
-## URL state
+### URL state
 
 `src/hooks/useUrlState.js` — `useUrlParam`/`useUrlParamList`/`useUrlParamMap` over react-router's
-`useSearchParams`. Writes use `replace`, so a multi-select doesn't fill the history.
+`useSearchParams`. Writes use `replace`, so a multi-select doesn't fill the history. Setting a
+value to `null`/`undefined`/`""` removes it from the URL rather than writing a placeholder — for
+`useUrlParamMap` this matters per-entry (`setValue`'s `next` filters out `null` entries before
+joining the map string, so clearing one item can't leave a stray `"key:null"` behind).
 `useUrlParamMap` is for a selection keyed by a dynamic id set (e.g. one dataset choice per
 selected run); like `useUrlParamList`, its setter takes the full next value rather than a
 `useState`-style updater.
@@ -360,9 +392,29 @@ identifying props).
 because reusing `runs` there let changing the dropdown silently truncate the other pages'
 multi-run selection down to one.
 
-## Chart chrome
+### Chart conventions
 
-`src/theme/chartChrome.js` exports `STANDARD_DATA_ZOOM` and `STANDARD_LEGEND` — the only two
-ECharts option fragments byte-identical across charts (dataZoom in six, legend placement in
-three). Grid margins and tooltip formatters differ per chart and stay inline. Chart heights come
-from `tokens.chart.height.*` (`sparkline`/`panel`/`full`/`tall`) rather than literals.
+`src/theme/chartChrome.js` exports the ECharts option fragments shared across charts:
+`STANDARD_DATA_ZOOM`, `STANDARD_LEGEND`, and `summaryBoxGraphic(text, overrides)` — the regression-
+summary callout (teal outline, height derived from line count), used by every A/B parity chart.
+Grid margins and tooltip formatters differ per chart and stay inline. Chart sizing comes from
+`tokens.chart.height.*`/`tokens.chart.width.*` rather than literals — `single`/`main` give a chart
+the bigger, one-run treatment (`MemoryABChart`'s pattern); `panel`/`"100%"` is the multi-run default.
+
+`src/theme/chartScale.js`'s `niceCeil`/`niceFloor` round an axis bound to 2 significant figures —
+use these on any chart that pins `min`/`max` to a computed value, since that disables ECharts' own
+tick rounding and otherwise produces axis labels like `42343.234234`.
+
+**`MetricScatter` uses A/B differently from every other chart here.** Elsewhere, A/B are two
+separate series each in a fixed colour (`tokens.variant.A`/`.B`). `MetricScatter` puts A on the
+x-axis and B on the y-axis: one point is one sample carrying both an A and a B value, so there is
+no per-variant series to colour. Only the axis *names* use the tokens; the scatter points are a
+plain single colour. A chart that treats a `MetricScatter` point as "the A series" and colours it
+from `tokens.variant` is misapplying a convention built for a different chart shape.
+
+## Known issues and planned work
+
+[TODO.md](TODO.md) is the active backlog (see its own header for how it's organised) —
+[ARCHIVE.md](ARCHIVE.md) holds everything done, mirroring TODO.md's section numbers exactly. Move
+an item to the archive once it's done, don't delete it; keep new items in the right section **and**
+in TODO's section 0 sequence, since an item with no phase is one that will be done out of order.

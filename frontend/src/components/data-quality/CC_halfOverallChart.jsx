@@ -1,9 +1,9 @@
 import EChartsStat from "echarts-stat";
 
-import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
-import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../theme/chartChrome";
-import { niceCeil } from "../theme/chartScale";
+import Chart from "../Chart";
+import { tokens } from "../../theme/tokens";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { niceCeil } from "../../theme/chartScale";
 
 // Convert (1/d)^2 -> d
 function invSqToD(v) {

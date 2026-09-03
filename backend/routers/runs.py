@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from runs.service import RunService
 from workspace.factory import get_workspace
-from routers.models import (
+from models import (
     CohortResponse,
     RunMetadata,
     CCHalfResponse,

@@ -6,7 +6,7 @@ consumer. See TODO.md section 4.
 
 from pydantic import BaseModel
 
-from runs.ab_pair import ABPair
+from models.ab_pair import ABPair
 
 
 class MetricDefinition(BaseModel):

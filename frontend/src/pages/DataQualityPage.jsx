@@ -1,5 +1,5 @@
 import ErrorBoundary from "../components/ErrorBoundary";
-import CC_halfOverallPanel from "../components/CC_halfOverallPanel";
+import CC_halfOverallPanel from "../components/data-quality/CC_halfOverallPanel";
 import RunProvenance from "../components/RunProvenance";
 import MultiRunSelector from "../components/data-quality/MultiRunSelector";
 import RunMetricPanel from "../components/data-quality/RunMetricPanel";
