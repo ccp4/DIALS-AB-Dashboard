@@ -1,10 +1,9 @@
-import EChartsStat from "echarts-stat";
-
 import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
 import { niceCeil } from "../../theme/chartScale";
+import { abSummary } from "../../theme/abSummary";
 import { useApi } from "../../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {
@@ -28,29 +27,7 @@ function CumulativeTimeTaken({ run }) {
 
   const maxValue = niceCeil(Math.max(...points.flatMap((p) => [p.A, p.B]), 1));
 
-  // Regression needs at least two points to fit
-  const regression =
-    points.length >= 2
-      ? EChartsStat.regression("linear", points.map((p) => [p.A, p.B]))
-      : null;
-
-  const ratios = points
-    .map((p) => p.B / p.A)
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b);
-
-  const median = ratios.length
-    ? ratios.length % 2
-      ? ratios[(ratios.length - 1) / 2]
-      : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
-    : null;
-
-  const bFaster = points.filter((p) => p.B < p.A).length;
-
-  const regressionSummary =
-    `B < A on ${bFaster}/${points.length}` +
-    `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
-    `${regression ? `\nfit: ${regression.expression}` : ""}`;
+  const { regression, text: regressionSummary } = abSummary(points, "lower");
 
   const series = [
     {

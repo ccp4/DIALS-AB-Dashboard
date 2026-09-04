@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Card, CardActionArea, CardContent, Dialog, DialogContent, Grid, Tooltip, Typography } from "@mui/material";
+import { Card, CardActionArea, CardContent, Dialog, DialogContent, Grid } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
+import CoverageLine from "../CoverageLine";
 import LoadingState from "../LoadingState";
 import MetricScatter from "./MetricScatter";
 import { goToDataset } from "../../navigation";
@@ -31,23 +32,7 @@ export default function CohortGrid({ run }) {
 
     return (
         <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {data.coverage.complete} / {data.coverage.total} complete
-                {data.coverage.missing_a > 0 && ` · ${data.coverage.missing_a} missing A`}
-                {data.coverage.missing_b > 0 && ` · ${data.coverage.missing_b} missing B`}
-                {(missingA.length > 0 || missingB.length > 0) && (
-                    <Tooltip
-                        title={
-                            <>
-                                {missingA.length > 0 && <div>Missing A: {missingA.join(", ")}</div>}
-                                {missingB.length > 0 && <div>Missing B: {missingB.join(", ")}</div>}
-                            </>
-                        }
-                    >
-                        <span style={{ cursor: "help" }}> ⓘ</span>
-                    </Tooltip>
-                )}
-            </Typography>
+            <CoverageLine coverage={data.coverage} missingA={missingA} missingB={missingB} sx={{ mb: 2 }} />
 
             <Grid container spacing={2}>
                 {data.metrics.map((metric) => (

@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Tooltip, Typography } from "@mui/material";
+import CoverageLine from "../CoverageLine";
 import ErrorBoundary from "../ErrorBoundary";
 import LoadingState from "../LoadingState";
 import MemoryABChart from "./MemoryABChart";
@@ -72,23 +72,13 @@ export default function MemoryPanels({ runs }) {
 				const missingA = rows.filter(r => r.status === "missing_a").map(r => r.label);
 				const missingB = rows.filter(r => r.status === "missing_b").map(r => r.label);
 				return (
-					<Typography key={run} variant="body2" color="text.secondary">
-						{run}: {coverage.complete} / {coverage.total} complete
-						{coverage.missing_a > 0 && ` · ${coverage.missing_a} missing A`}
-						{coverage.missing_b > 0 && ` · ${coverage.missing_b} missing B`}
-						{(missingA.length > 0 || missingB.length > 0) && (
-							<Tooltip
-								title={
-									<>
-										{missingA.length > 0 && <div>Missing A: {missingA.join(", ")}</div>}
-										{missingB.length > 0 && <div>Missing B: {missingB.join(", ")}</div>}
-									</>
-								}
-							>
-								<span style={{ cursor: "help" }}> ⓘ</span>
-							</Tooltip>
-						)}
-					</Typography>
+					<CoverageLine
+						key={run}
+						coverage={coverage}
+						missingA={missingA}
+						missingB={missingB}
+						prefix={`${run}: `}
+					/>
 				);
 			})}
 

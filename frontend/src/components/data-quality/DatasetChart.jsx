@@ -49,10 +49,12 @@ function DatasetChart({ data, urlKey, single = false }) {
       ...(variant ? variantSeriesStyle(variant, seen[variant]++) : {}),
     }})
   
+  const isFitTrace = (name) => name.includes("fit");
+
   const shouldSelectFits = activeKey === "cc_half" && traces.length > 0;
   // If nothing matches "fit" (e.g. DIALS renamed the trace), fall back to
   // showing everything rather than defaulting every trace to hidden.
-  const anyFitTrace = traces.some(({ name }) => name.includes("fit"));
+  const anyFitTrace = traces.some(({ name }) => isFitTrace(name));
 
   const legend = {
     orient: "vertical",
@@ -60,7 +62,7 @@ function DatasetChart({ data, urlKey, single = false }) {
     top: "center",
     align: "left",
     selected: shouldSelectFits
-      ? Object.fromEntries(traces.map(({ name }) => [name, anyFitTrace ? name.includes("fit") : true]))
+      ? Object.fromEntries(traces.map(({ name }) => [name, anyFitTrace ? isFitTrace(name) : true]))
       : undefined,
   };
   

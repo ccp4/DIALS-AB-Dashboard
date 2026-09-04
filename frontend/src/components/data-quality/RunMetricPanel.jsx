@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
     Card,
     CardContent,
@@ -8,7 +9,8 @@ import {
     FormControlLabel
 } from "@mui/material";
 import RunPanel from "./RunPanel";
-import { useUrlParam, useUrlParamMap } from "../../hooks/useUrlState";
+import { encodeParamMap, useUrlParam, useUrlParamMap } from "../../hooks/useUrlState";
+import { useApiAll } from "../../hooks/useApi";
 
 function RunMetricPanel({ title, run_ids, metric }) {
 
@@ -17,28 +19,42 @@ function RunMetricPanel({ title, run_ids, metric }) {
     const setSync = (enabled) => setSyncRaw(enabled ? "1" : null);
 
     const [datasets, setDatasets] = useUrlParamMap(`${metric}_ds`);
+    const [, setSearchParams] = useSearchParams();
 
-    // `datasets` is keyed by run id, but nothing else ties its lifetime to
-    // `run_ids` — deselecting a run leaves its entry (and its dataset name)
-    // in the URL forever. Prune on every change; idempotent once nothing is
-    // stale, so this settles in one extra render rather than looping.
+    // Which datasets each run actually has — sync must not point a run at a
+    // dataset name that belongs to a different run.
+    const { data: runInfo } = useApiAll(run_ids.map(id => ({ key: id, path: `/runs/${id}` })));
+    const datasetsFor = (runId) => runInfo[runId]?.datasets ?? [];
+
     useEffect(() => {
-        const stale = Object.keys(datasets).some(id => !run_ids.includes(id));
-        if (!stale) return;
-
-        setDatasets(
-            Object.fromEntries(
-                Object.entries(datasets).filter(([id]) => run_ids.includes(id))
-            )
+        const next = Object.fromEntries(
+            Object.entries(datasets).filter(([id]) => run_ids.includes(id))
         );
-    }, [run_ids, datasets, setDatasets]);
+
+        if (sync) {
+            const reference = run_ids.map(id => next[id]).find(Boolean);
+
+            if (reference) {
+                run_ids.forEach(id => {
+                    if (next[id] == null && (runInfo[id]?.datasets ?? []).includes(reference)) {
+                        next[id] = reference;
+                    }
+                });
+            }
+        }
+
+        if (JSON.stringify(next) !== JSON.stringify(datasets)) {
+            setDatasets(next);
+        }
+    }, [run_ids, datasets, sync, runInfo, setDatasets]);
 
     const handleDatasetChange = (changedRunId, dataset) => {
         if (sync) {
-            // Every run uses the same dataset
             const syncedDatasets = {};
             run_ids.forEach(runId => {
-                syncedDatasets[runId] = dataset;
+                if (datasetsFor(runId).includes(dataset)) {
+                    syncedDatasets[runId] = dataset;
+                }
             });
             setDatasets(syncedDatasets);
         } else {
@@ -51,18 +67,30 @@ function RunMetricPanel({ title, run_ids, metric }) {
     };
 
     const handleSyncToggle = (enabled) => {
-        setSync(enabled);
-        if (!enabled) return;
+        if (!enabled) {
+            setSync(false);
+            return;
+        }
 
         const firstSelected = datasets[run_ids[0]];
-        if (!firstSelected) return;
+        setSearchParams(prev => {
+            const updated = new URLSearchParams(prev);
+            updated.set(`${metric}_sync`, "1");
 
-        const synced = {};
-        run_ids.forEach(id => {
-            synced[id] = firstSelected;
-        });
+            if (firstSelected) {
+                const synced = Object.fromEntries(
+                    run_ids
+                        .filter(id => datasetsFor(id).includes(firstSelected))
+                        .map(id => [id, firstSelected])
+                );
+                const encoded = encodeParamMap(synced);
 
-        setDatasets(synced);
+                if (encoded) updated.set(`${metric}_ds`, encoded);
+                else updated.delete(`${metric}_ds`);
+            }
+
+            return updated;
+        }, { replace: true });
     };
 
     return (

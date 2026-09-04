@@ -1,12 +1,10 @@
-from storage.local import FileSystemRunRepository
-from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell, extract_xia2_space_group, extract_xia2_cumulative_timing, extract_xia2_summary, extract_xia2_build_info, extract_xia2_cc_half
+from runs.xia2_extractor import extract_xia2_raw, extract_xia2_dataset_raw, extract_xia2_dataset_comparison, extract_xia2_memory, extract_xia2_comparison, extract_xia2_datasets, extract_xia2_dataset_memplot, extract_xia2_timing, extract_xia2_unit_cell_space, extract_xia2_cumulative_timing, extract_xia2_summary, extract_xia2_build_info, extract_xia2_cc_half
 from runs.xia2_processor import process_xia2_data, clean_xia2_data, process_xia2_memory_data, build_cohort
 from runs.metrics import METRICS
 
 class RunService:
     def __init__(self, workspace):
         self.workspace = workspace
-        self.repo = FileSystemRunRepository()
         self.xia_marker = "datasets.txt"
 
     def list_runs(self):
@@ -31,20 +29,13 @@ class RunService:
             "run_id" : run_id,
             "datasets": datasets,
             "builds": extract_xia2_build_info(self.workspace, run_id, datasets),
-            "raw" : self.repo.exists(f"{run_id}/raw"),
-            "comparison" : self.repo.exists(f"{run_id}/comparison"),
-            "memory" : self.repo.exists(f"{run_id}/memory"),
         }
 
     def get_datasets(self, run_id: str):
         return extract_xia2_datasets(self.workspace, run_id)
     
     def get_xia2_raw(self, run_id: str):
-        key = f"{run_id}/raw"
-        # if self.repo.exists(key):
-        #     return self.repo.load(key)
         data = extract_xia2_raw(self.workspace, run_id)
-        self.repo.save(key, data)
         clean = clean_xia2_data(data)
         return process_xia2_data(clean)
     
@@ -66,16 +57,12 @@ class RunService:
         return extract_xia2_cc_half(self.workspace, run_id)
 
     def get_xia2_comparison(self, run_id: str):
-        key = f"{run_id}/comparison"
         data = extract_xia2_comparison(self.workspace, run_id)
-        self.repo.save(key, data)
         clean = clean_xia2_data(data)
         return process_xia2_data(clean)
-    
+
     def get_xia2_memory(self, run_id: str):
-        key = f"{run_id}/memory"
         data = extract_xia2_memory(self.workspace, run_id)
-        self.repo.save(key, data)
         return process_xia2_memory_data(data)
     
     def get_xia2_dataset_memplot(self, run_id:str, dataset: str):
@@ -90,9 +77,7 @@ class RunService:
         return extract_xia2_cumulative_timing(self.workspace, run_id=run_id)
 
     def get_xia2_cell_space(self, run_id: str, dataset: str):
-        cell_data = extract_xia2_unit_cell(self.workspace, run_id=run_id, dataset=dataset)
-        space_group = extract_xia2_space_group(self.workspace, run_id=run_id, dataset=dataset)
-        return {"unit_cell": cell_data,"space_group": space_group}
+        return extract_xia2_unit_cell_space(self.workspace, run_id=run_id, dataset=dataset)
 
 
     def run_exists(self, run_id: str):

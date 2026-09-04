@@ -1,9 +1,9 @@
-import EChartsStat from "echarts-stat";
-
 import Chart from "../Chart";
+import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
 import { niceCeil } from "../../theme/chartScale";
+import { abSummary } from "../../theme/abSummary";
 
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit
@@ -48,35 +48,23 @@ function MemoryABChart({ data }) {
                         B: d.B,
                     }));
 
+                if (!points.length) {
+                    return (
+                        <NoDataChart
+                            key={run}
+                            title={`${run}: A vs B Memory per Dataset`}
+                            message="No comparable datasets"
+                            style={chartStyle}
+                        />
+                    );
+                }
+
                 const maxValue = niceCeil(Math.max(
                     ...points.flatMap(p => [p.A, p.B]),
                     1
                 ));
 
-                const regression = EChartsStat.regression(
-                "linear",
-                points.map((p) => [p.A, p.B])
-                );
-
-                const regressionLine = regression.points;
-
-                const ratios = points
-                    .map(p => p.B / p.A)
-                    .filter(Number.isFinite)
-                    .sort((a, b) => a - b);
-
-                const median = ratios.length
-                    ? ratios.length % 2
-                        ? ratios[(ratios.length - 1) / 2]
-                        : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
-                    : null;
-
-                const bSmaller = points.filter(p => p.B < p.A).length;
-
-                const regressionSummary =
-                    `B < A on ${bSmaller}/${points.length}` +
-                    `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
-                    `\nfit: ${regression.expression}`;
+                const { regression, text: regressionSummary } = abSummary(points, "lower");
 
                 const identityLine = [];
                 const step = Math.max(maxValue / 100, 1);
@@ -104,10 +92,10 @@ function MemoryABChart({ data }) {
                         },
                         z: 0,
                     },
-                    {
+                    ...(regression ? [{
                         name: "Regression",
                         type: "line",
-                        data: regressionLine,
+                        data: regression.points,
                         symbol: "none",
                         silent: true,
                         animation: false,
@@ -116,7 +104,7 @@ function MemoryABChart({ data }) {
                             width: 2,
                         },
                         z: 1,
-                    },
+                    }] : []),
                     {
                         name: run,
                         type: "scatter",

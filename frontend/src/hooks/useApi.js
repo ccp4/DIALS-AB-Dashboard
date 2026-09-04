@@ -109,24 +109,32 @@ export function useApiAll(requests, { throwOnError = true } = {}) {
         setLoading(true);
         setError(null);
 
-        Promise.all(
-            missing.map(async ({ path }) => [
-                path,
-                await apiGet(path, { signal: controller.signal })
-            ])
+        Promise.allSettled(
+            missing.map(({ path }) =>
+                apiGet(path, { signal: controller.signal }).then(value => ({ path, value }))
+            )
         )
-            .then(fetched => {
-                fetched.forEach(([path, value]) => cache.current.set(path, value));
+            .then(results => {
+                if (controller.signal.aborted) return;
+
+                // A failed request in the batch must not discard the others'
+                // results — cache every fulfilled one, then surface the first
+                // rejection (if any) without blocking on it.
+                let firstError = null;
+
+                results.forEach(result => {
+                    if (result.status === "fulfilled") {
+                        cache.current.set(result.value.path, result.value.value);
+                    } else if (!firstError) {
+                        firstError = result.reason;
+                    }
+                });
 
                 setData(project());
                 setLoading(false);
-            })
-            .catch(err => {
-                if (controller.signal.aborted) return;
+                setError(firstError);
 
-                setError(err);
-                setLoading(false);
-                if (throwOnError) showBoundary(err);
+                if (firstError && throwOnError) showBoundary(firstError);
             });
 
         return () => controller.abort();

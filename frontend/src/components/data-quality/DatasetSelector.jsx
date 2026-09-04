@@ -11,7 +11,8 @@ function DatasetSelector({ runId, value, onChange }) {
   const {
     datasets,
     loading,
-  } = useListDatasets(runId);
+    error,
+  } = useListDatasets(runId, { throwOnError: false });
 
   if (loading) return <LoadingState label="Loading datasets..." />;
 
@@ -26,6 +27,8 @@ function DatasetSelector({ runId, value, onChange }) {
           {...params}
           variant="standard"
           label="Dataset"
+          error={Boolean(error)}
+          helperText={error ? "Failed to load datasets" : undefined}
         />
       )}
     />

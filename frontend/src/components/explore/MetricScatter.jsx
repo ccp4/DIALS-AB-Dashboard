@@ -1,11 +1,11 @@
 import { memo } from "react";
 
-import EChartsStat from "echarts-stat";
-
 import Chart from "../Chart";
+import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
 import { niceCeil, niceFloor } from "../../theme/chartScale";
+import { abSummary } from "../../theme/abSummary";
 
 import { formatValue, metricValue } from "../../theme/metricFormat";
 
@@ -37,26 +37,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
         .filter((p) => Number.isFinite(p.A) && Number.isFinite(p.B));
 
     if (!points.length) {
-        return (
-            <Chart
-                option={{
-                    title: { text: metric.label, left: "center" },
-                    graphic: [
-                        {
-                            type: "text",
-                            left: "center",
-                            top: "middle",
-                            style: {
-                                text: "No comparable samples",
-                                fill: tokens.ink.muted,
-                                font: `${tokens.font.size.label}px ${tokens.font.family}`,
-                            },
-                        },
-                    ],
-                }}
-                style={style}
-            />
-        );
+        return <NoDataChart title={metric.label} message="No comparable samples" style={style} />;
     }
 
     const allValues = points.flatMap((p) => [p.A, p.B]);
@@ -66,36 +47,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
     const domainMin = niceFloor(min - pad);
     const domainMax = niceCeil(max + pad);
 
-    const regression =
-        points.length >= 2
-            ? EChartsStat.regression("linear", points.map((p) => [p.A, p.B]))
-            : null;
-
-    const ratios = points
-        .map((p) => p.B / p.A)
-        .filter(Number.isFinite)
-        .sort((a, b) => a - b);
-
-    const median = ratios.length
-        ? ratios.length % 2
-            ? ratios[(ratios.length - 1) / 2]
-            : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
-        : null;
-
-    const betterCount =
-        metric.better === "higher"
-            ? points.filter((p) => p.B > p.A).length
-            : metric.better === "lower"
-                ? points.filter((p) => p.B < p.A).length
-                : null;
-
-    const betterSymbol = metric.better === "higher" ? ">" : "<";
-
-    const summaryLines = [
-        betterCount !== null ? `B ${betterSymbol} A on ${betterCount}/${points.length}` : null,
-        median !== null ? `median B/A = ${median.toFixed(3)}` : null,
-        regression ? `fit: ${regression.expression}` : null,
-    ].filter(Boolean);
+    const { regression, lines: summaryLines } = abSummary(points, metric.better);
 
     const identityLine = [
         [domainMin, domainMin],

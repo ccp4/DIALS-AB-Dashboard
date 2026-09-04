@@ -62,7 +62,7 @@ npm --prefix frontend run build
 ```
 
 Single-service commands, for isolating one half — the backend must run from `backend/`
-(`config.py`/`FileSystemRunRepository` use paths relative to it):
+(`config.py` uses paths relative to it):
 
 ```bash
 cd backend && venv/bin/python3 -m uvicorn main:app --reload
@@ -129,8 +129,9 @@ api/client.js               # the one fetch wrapper
 ## Two separate data roots
 
 - **`WORKSPACE_DIR`** — the source xia2 output. Large, external, never written to.
-- **`backend/storage/processed_runs/`** — the app's own JSON cache. Gitignored, created on
-  startup.
+- **`backend/storage/processed_runs/`** — where `FileSystemRunRepository` (below) would write its
+  JSON cache. Gitignored. `RunService` no longer instantiates the repository, so nothing writes
+  here currently — the directory only exists from before that was removed.
 
 ## Workspace layout the extractors assume
 
@@ -199,10 +200,13 @@ Two consequences worth internalising:
   `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
 - **Processor**: reshapes into ECharts-ready series. `build_cohort` is the one processor function
   that isn't reshaping for a chart — it's a join.
-- **Storage** (`FileSystemRunRepository`): a JSON cache keyed `<run_id>/<resource>`. `save()` is
-  called but the `load()` short-circuit in `get_xia2_raw` is commented out, so requests re-extract
-  from disk every time (hence the timing middleware in `main.py`). **This is deliberate and
-  deferred — leave it commented out.** Do not re-enable the cache as a drive-by fix.
+- **Storage** (`FileSystemRunRepository`, `storage/local.py`): a JSON-cache implementation keyed
+  `<run_id>/<resource>`, kept for potential future use but **not currently wired into
+  `RunService`** — every request re-extracts from disk every time (hence the timing middleware in
+  `main.py`). It previously backed three now-removed `RunMetadata` fields (`raw`/`comparison`/
+  `memory` booleans, sourced from `repo.exists()`) with no frontend consumer; those were dropped
+  along with the wiring rather than left reporting a permanently-`false` value. Re-wiring the cache
+  is a deliberate future decision, not a drive-by fix.
 
 ### The series contract
 

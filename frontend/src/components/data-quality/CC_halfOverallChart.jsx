@@ -1,9 +1,9 @@
-import EChartsStat from "echarts-stat";
-
 import Chart from "../Chart";
+import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
 import { niceCeil } from "../../theme/chartScale";
+import { abSummary } from "../../theme/abSummary";
 
 // Convert (1/d)^2 -> d
 function invSqToD(v) {
@@ -77,35 +77,23 @@ function CC_halfOverallChart({ data }) {
                         B: bLookup[dataset],
                     }));
 
+                if (!points.length) {
+                    return (
+                        <NoDataChart
+                            key={run}
+                            title={`${run}: CC½ resolution, A vs B`}
+                            message="No comparable datasets"
+                            style={chartStyle}
+                        />
+                    );
+                }
+
                 const maxValue = niceCeil(Math.max(
                     ...points.flatMap(p => [p.A, p.B]),
                     1
                 ));
 
-                const regression = EChartsStat.regression(
-                "linear",
-                points.map((p) => [p.A, p.B])
-                );
-
-                const regressionLine = regression.points;
-
-                const ratios = points
-                    .map(p => p.B / p.A)
-                    .filter(Number.isFinite)
-                    .sort((a, b) => a - b);
-
-                const median = ratios.length
-                    ? ratios.length % 2
-                        ? ratios[(ratios.length - 1) / 2]
-                        : (ratios[ratios.length / 2 - 1] + ratios[ratios.length / 2]) / 2
-                    : null;
-
-                const bBetter = points.filter(p => p.B > p.A).length;
-
-                const regressionSummary =
-                    `B > A on ${bBetter}/${points.length}` +
-                    `${median !== null ? `\nmedian B/A = ${median.toFixed(3)}` : ""}` +
-                    `\nfit: ${regression.expression}`;
+                const { regression, text: regressionSummary } = abSummary(points, "higher");
 
                 const identityLine = [];
                 const step = Math.max(maxValue / 100, 1);
@@ -133,10 +121,10 @@ function CC_halfOverallChart({ data }) {
                         },
                         z: 0,
                     },
-                    {
+                    ...(regression ? [{
                         name: "Regression",
                         type: "line",
-                        data: regressionLine,
+                        data: regression.points,
                         symbol: "none",
                         silent: true,
                         animation: false,
@@ -145,7 +133,7 @@ function CC_halfOverallChart({ data }) {
                             width: 2,
                         },
                         z: 1,
-                    },
+                    }] : []),
                     {
                         name: run,
                         type: "scatter",

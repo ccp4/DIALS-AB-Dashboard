@@ -201,43 +201,27 @@ def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
 
     return res
 
-def extract_xia2_unit_cell(workspace: Workspace, run_id: str, dataset: str):
+def extract_xia2_unit_cell_space(workspace: Workspace, run_id: str, dataset: str) -> dict:
+    """Unit cell and spacegroup are both single lines in the same
+    `xia2-summary.dat`, so one read per variant covers both."""
     data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
 
-    res = {"A": None, "B": None}
+    unit_cell = {"A": None, "B": None}
+    space_group = {"A": None, "B": None}
 
     for f in files:
         if f.name not in wanted:
             continue
 
-        text = workspace.read_text(f)
-        for line in text.splitlines():
-            if "Cell:" in line:
-                res[f.parent.name] = line
-                break
+        for line in workspace.read_text(f).splitlines():
+            if "Cell:" in line and unit_cell[f.parent.name] is None:
+                unit_cell[f.parent.name] = line
+            elif "Spacegroup:" in line and space_group[f.parent.name] is None:
+                space_group[f.parent.name] = line
 
-    return res
-
-def extract_xia2_space_group(workspace: Workspace, run_id: str, dataset: str):
-    data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
-    files = workspace.list_files(data_src)
-    wanted = ["xia2-summary.dat"]
-
-    res = {"A": None, "B": None}
-
-    for f in files:
-        if f.name not in wanted:
-            continue
-
-        text = workspace.read_text(f)
-        for line in text.splitlines():
-            if "Spacegroup:" in line:
-                res[f.parent.name] = line
-                break
-
-    return res
+    return {"unit_cell": unit_cell, "space_group": space_group}
 
 def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(

@@ -7,6 +7,14 @@ import { useSearchParams } from "react-router-dom";
  * Writes use `replace`, so building up a selection leaves one history entry
  * rather than one per keystroke; the back button leaves the view instead of
  * unwinding the selection.
+ *
+ * Each hook call wraps its own `useSearchParams()`, so calling setters from
+ * two different hook instances synchronously in the same handler is a race
+ * — both read the same pre-render snapshot, so the second call's write
+ * silently drops the first's. Use `useSearchParams` directly for one
+ * `setSearchParams` call that updates multiple keys atomically instead
+ * (`encodeParamMap` is exported for exactly this — see `RunMetricPanel`'s
+ * `handleSyncToggle`).
  */
 
 const EMPTY = [];
@@ -84,6 +92,19 @@ export function useUrlParamList(key) {
  *          `setValue` takes the full next map, mirroring `useUrlParamList`
  *          rather than a `useState`-style updater.
  */
+/**
+ * The `key:value,...` encoding `useUrlParamMap` uses, exposed so a caller
+ * that needs to write this param atomically alongside another one (via a
+ * single `setSearchParams` call — see its docstring for why) doesn't have
+ * to duplicate the format.
+ *
+ * @returns {string|null} `null` means "remove the param".
+ */
+export function encodeParamMap(map) {
+    const entries = Object.entries(map ?? {}).filter(([, v]) => v != null && v !== "");
+    return entries.length ? entries.map(([k, v]) => `${k}:${v}`).join(",") : null;
+}
+
 export function useUrlParamMap(key) {
     const [params, setParams] = useSearchParams();
 
@@ -100,16 +121,10 @@ export function useUrlParamMap(key) {
     const setValue = useCallback(next => {
         setParams(prev => {
             const updated = new URLSearchParams(prev);
-            // A cleared selection (null/undefined) drops the entry entirely,
-            // matching useUrlParam — otherwise it round-trips as the literal
-            // string "null" and gets used as if it were a real value.
-            const entries = Object.entries(next ?? {}).filter(([, v]) => v != null && v !== "");
+            const encoded = encodeParamMap(next);
 
-            if (entries.length) {
-                updated.set(key, entries.map(([k, v]) => `${k}:${v}`).join(","));
-            } else {
-                updated.delete(key);
-            }
+            if (encoded) updated.set(key, encoded);
+            else updated.delete(key);
 
             return updated;
         }, { replace: true });

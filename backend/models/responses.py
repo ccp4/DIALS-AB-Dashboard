@@ -66,9 +66,6 @@ class RunMetadata(BaseModel):
     run_id: str
     datasets: list[str]
     builds: RunBuilds
-    raw: bool
-    comparison: bool
-    memory: bool
 
 
 class CCHalfResponse(BaseModel):
