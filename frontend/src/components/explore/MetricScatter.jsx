@@ -1,9 +1,8 @@
 import { memo } from "react";
 
 import Chart from "../Chart";
-import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic, noDataGraphic } from "../../theme/chartChrome";
 import { niceCeil, niceFloor } from "../../theme/chartScale";
 import { abSummary } from "../../theme/abSummary";
 
@@ -36,18 +35,19 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
         }))
         .filter((p) => Number.isFinite(p.A) && Number.isFinite(p.B));
 
-    if (!points.length) {
-        return <NoDataChart title={metric.label} message="No comparable samples" style={style} />;
-    }
-
+    // No rows yet (no run selected) and "rows exist but nothing comparable"
+    // get the same real-axes skeleton — just with a default domain, since
+    // there's nothing to derive one from.
     const allValues = points.flatMap((p) => [p.A, p.B]);
-    const min = Math.min(...allValues);
-    const max = Math.max(...allValues);
+    const min = points.length ? Math.min(...allValues) : 0;
+    const max = points.length ? Math.max(...allValues) : 1;
     const pad = (max - min) * 0.05 || Math.abs(max) * 0.05 || 1;
     const domainMin = niceFloor(min - pad);
     const domainMax = niceCeil(max + pad);
 
-    const { regression, lines: summaryLines } = abSummary(points, metric.better);
+    const { regression, lines: summaryLines } = points.length
+        ? abSummary(points, metric.better)
+        : { regression: null, lines: [] };
 
     const identityLine = [
         [domainMin, domainMin],
@@ -119,14 +119,16 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
         // on): the shared bottom-right box — summaryBoxGraphic's default
         // bottom offset already clears a STANDARD_DATA_ZOOM slider on every
         // other chart that uses both.
-        graphic: summaryLines.length
-            ? enableZoom
-                ? summaryBoxGraphic(summaryLines.join("\n"))
-                : summaryBoxGraphic(summaryLines.join("\n"), {
-                      position: { left: "center", bottom: 4 },
-                      width: 200,
-                  })
-            : undefined,
+        graphic: !points.length
+            ? noDataGraphic()
+            : summaryLines.length
+                ? enableZoom
+                    ? summaryBoxGraphic(summaryLines.join("\n"))
+                    : summaryBoxGraphic(summaryLines.join("\n"), {
+                          position: { left: "center", bottom: 4 },
+                          width: 200,
+                      })
+                : undefined,
 
         tooltip: {
             trigger: "item",

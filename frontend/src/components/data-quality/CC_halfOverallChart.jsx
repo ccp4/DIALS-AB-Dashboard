@@ -1,7 +1,7 @@
 import Chart from "../Chart";
 import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "../../theme/chartChrome";
 import { niceCeil } from "../../theme/chartScale";
 import { abSummary } from "../../theme/abSummary";
 
@@ -46,7 +46,21 @@ function CC_halfOverallChart({ data }) {
     const memory = data ?? {};
     const runs = Object.keys(memory);
 
-    if (!runs.length) return null;
+    if (!runs.length) {
+        return (
+            <Chart
+                option={parityScatterSkeleton({
+                    title: "CC½ resolution, A vs B",
+                    xName: "A (Å)",
+                    yName: "B (Å)",
+                    axisLabelFormatter: formatD,
+                })}
+                notMerge
+                lazyUpdate
+                style={{ height: tokens.chart.height.single, width: tokens.chart.width.single }}
+            />
+        );
+    }
 
     // A single run gets a bigger, dedicated chart; multiple runs share the grid.
     const chartStyle = runs.length === 1

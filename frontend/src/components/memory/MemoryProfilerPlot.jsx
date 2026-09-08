@@ -4,6 +4,7 @@ import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens, withAlpha } from "../../theme/tokens";
 import { niceCeil } from "../../theme/chartScale";
+import { noDataGraphic } from "../../theme/chartChrome";
 import { useApi } from "../../hooks/useApi";
 import { useUrlParam } from "../../hooks/useUrlState";
 
@@ -16,6 +17,14 @@ const STAGE_BANDS = {
   "dials.find_spots": withAlpha(tokens.series[2], 0.25),
   "dials.index": withAlpha(tokens.series[4], 0.25),
   "dials.integrate": withAlpha(tokens.series[0], 0.25),
+};
+
+// Shown in place of `infoData` before a dataset is chosen — same shape
+// (`{section: {A, B}}`) as the real response, so the render logic below
+// doesn't need a separate branch for the empty case.
+const INFO_PLACEHOLDER = {
+  unit_cell: { A: "—", B: "—" },
+  space_group: { A: "—", B: "—" },
 };
 
 function relativeDuration(samples) {
@@ -33,7 +42,12 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
   const [urlDataset, setUrlDataset] = useUrlParam(`ds_${run}`);
   const selectedDataset = fixedDataset ?? urlDataset;
 
-  const { data: runInfo, loading: loadingDatasets } = useApi(fixedDataset ? null : `/runs/${run}`);
+  // `run` is optional — the zero-runs-selected skeleton renders one generic
+  // instance with no run at all, so there's nothing to fetch a dataset list
+  // for yet.
+  const { data: runInfo, loading: loadingDatasets } = useApi(
+    fixedDataset || !run ? null : `/runs/${run}`
+  );
 
   const memoryPath = selectedDataset
     ? `/runs/${run}/memory/${selectedDataset}`
@@ -61,48 +75,38 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
   if (loadingDatasets) return <LoadingState label="Loading datasets..." />;
 
   const makeOption = (title, samples, commands, variant, xMax, yMax) => {
-      if (!samples || samples.length === 0) {
-        return {
-          title: {
-            text: `${title} - No data`
+    const hasData = samples && samples.length > 0;
+    const t0 = hasData ? samples[0][0] : 0;
+
+    const relative = hasData ? samples.map(([t, m]) => [t - t0, m]) : [];
+
+    const markAreas = hasData ? commands.map(cmd => {
+      const important = STAGE_BANDS[cmd.command];
+
+      return [
+        {
+          name: cmd.command,
+          xAxis: cmd.time_start - t0,
+
+          itemStyle: {
+            color: important
+              ? important
+              : "rgba(0,0,0,0)"
           },
-          series: []
-        };
-      }
-    const t0 = samples[0][0];
 
-    const relative = samples.map(([t, m]) => [
-      t - t0,
-      m
-    ]);
-
-const markAreas = commands.map(cmd => {
-  const important = STAGE_BANDS[cmd.command];
-
-  return [
-    {
-      name: cmd.command,
-      xAxis: cmd.time_start - t0,
-
-      itemStyle: {
-        color: important
-          ? important
-          : "rgba(0,0,0,0)"
-      },
-
-      label: {
-        show: true,
-        color: important
-          ? tokens.ink.base
-          : "rgba(0,0,0,0)",
-        position: "insideTop"
-      }
-    },
-    {
-      xAxis: cmd.time_end - t0
-    }
-  ];
-});
+          label: {
+            show: true,
+            color: important
+              ? tokens.ink.base
+              : "rgba(0,0,0,0)",
+            position: "insideTop"
+          }
+        },
+        {
+          xAxis: cmd.time_end - t0
+        }
+      ];
+    }) : [];
 
     return {
       title: {
@@ -114,6 +118,8 @@ const markAreas = commands.map(cmd => {
         trigger: "axis",
         axisPointer: { type: "cross" },
       },
+
+      graphic: hasData ? undefined : noDataGraphic(),
 
       xAxis: {
         type: "value",
@@ -168,6 +174,7 @@ const markAreas = commands.map(cmd => {
         <Autocomplete
           options={datasets}
           value={selectedDataset}
+          disabled={!run}
           onChange={(event, value) => setUrlDataset(value)}
           sx={{ width: 300, mb: 3 }}
           renderInput={(params) => (
@@ -182,11 +189,10 @@ const markAreas = commands.map(cmd => {
 
       {loadingMemory && <LoadingState label="Loading memory profile..." />}
 
-      {memoryData && commandData && infoData && (
+      {!loadingMemory && (
         <>
-
           <div>
-            {Object.entries(infoData).map(([key, inner]) => (
+            {Object.entries(infoData ?? INFO_PLACEHOLDER).map(([key, inner]) => (
               <div key={key}>
                 <h3>{key}</h3>
 
@@ -201,8 +207,8 @@ const markAreas = commands.map(cmd => {
           <Chart
             option={makeOption(
               "DIALS A",
-              memoryData.A,
-              commandData.A,
+              memoryData?.A,
+              commandData?.A,
               "A",
               xMax,
               yMax
@@ -213,8 +219,8 @@ const markAreas = commands.map(cmd => {
           <Chart
             option={makeOption(
               "DIALS B",
-              memoryData.B,
-              commandData.B,
+              memoryData?.B,
+              commandData?.B,
               "B",
               xMax,
               yMax

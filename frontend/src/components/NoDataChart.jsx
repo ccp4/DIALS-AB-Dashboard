@@ -1,5 +1,5 @@
 import Chart from "./Chart";
-import { tokens } from "../theme/tokens";
+import { noDataGraphic } from "../theme/chartChrome";
 
 /**
  * A Chart-shaped placeholder for a panel with nothing to plot — keeps the
@@ -11,16 +11,7 @@ function NoDataChart({ title, message, style }) {
         <Chart
             option={{
                 title: { text: title, left: "center" },
-                graphic: [{
-                    type: "text",
-                    left: "center",
-                    top: "middle",
-                    style: {
-                        text: message,
-                        fill: tokens.ink.muted,
-                        font: `${tokens.font.size.label}px ${tokens.font.family}`,
-                    },
-                }],
+                graphic: noDataGraphic(message),
             }}
             style={style}
         />

@@ -2,9 +2,32 @@ import { useMemo } from "react";
 
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, noDataGraphic } from "../../theme/chartChrome";
 import { variantOf, variantSeriesStyle } from "../../theme/variant";
 import { useUrlParam } from "../../hooks/useUrlState";
+
+// Fixed regardless of which trace-group is active — shared by the skeleton
+// (no trace-group known yet) and the populated option below.
+const RESOLUTION_X_AXIS = {
+  type: "value",
+  name: "Resolution (d)",
+  nameLocation: "middle",
+  nameGap: 30,
+  axisLabel: {
+    formatter: (value) => {
+      const d = Math.sqrt(1 / value);
+      return d.toFixed(2);
+    },
+  },
+};
+
+const RESOLUTION_GRID = {
+  left: "5%",
+  right: "20%",
+  top: "10%",
+  bottom: "15%",
+  containLabel: true,
+};
 
 /**
  * @param {string} urlKey Makes the trace-selection URL param unique when
@@ -19,8 +42,48 @@ function DatasetChart({ data, urlKey, single = false }) {
   const keys = useMemo(() => Object.keys(dataset ?? {}), [dataset]);
   const [selectedKey, setSelectedKey] = useUrlParam(`trace_${urlKey}`);
 
+  const chartStyle = single
+    ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
+    : { height: tokens.chart.height.panel, width: "100%" };
+
+  // Which trace-groups exist (the options below) is DIALS-driven, not fixed
+  // in code — unlike every other chart here, there's no known metric name to
+  // preview before data has loaded once. Only the x-axis is genuinely fixed
+  // regardless of which trace is active, so the skeleton is partial: real
+  // x-axis, blank y-axis, an A/B legend (this chart is always an A/B
+  // comparison whatever the metric), and the trace picker shown disabled
+  // rather than hidden.
   if (!dataset || keys.length === 0) {
-    return <div>No data</div>;
+    return (
+      <>
+        <select disabled value="">
+          <option value="">Trace</option>
+        </select>
+
+        <Chart
+          option={{
+            graphic: noDataGraphic(),
+            legend: {
+              orient: "vertical",
+              left: "75%",
+              top: "center",
+              align: "left",
+              data: ["A", "B"],
+            },
+            xAxis: RESOLUTION_X_AXIS,
+            yAxis: { type: "value" },
+            grid: RESOLUTION_GRID,
+            series: [
+              { name: "A", type: "line", data: [], ...variantSeriesStyle("A", 0) },
+              { name: "B", type: "line", data: [], ...variantSeriesStyle("B", 0) },
+            ],
+          }}
+          style={chartStyle}
+          notMerge={true}
+          lazyUpdate={true}
+        />
+      </>
+    );
   }
 
   // Falls back to the first key without an effect: a selection left over
@@ -85,18 +148,7 @@ function DatasetChart({ data, urlKey, single = false }) {
     },
     legend,
     dataZoom: STANDARD_DATA_ZOOM,
-    xAxis: {
-      type: "value",
-      name: "Resolution (d)",
-      nameLocation: "middle",
-      nameGap: 30,
-      axisLabel: {
-        formatter: (value) => {
-          const d = Math.sqrt(1 / value);
-          return d.toFixed(2);
-        },
-      },
-    },
+    xAxis: RESOLUTION_X_AXIS,
     yAxis: {
       type: "value",
       name: `${activeKey}`,
@@ -104,13 +156,7 @@ function DatasetChart({ data, urlKey, single = false }) {
       nameRotate: 90,
       nameGap: 30,
     },
-    grid: {
-      left: "5%",
-      right: "20%",
-      top: "10%",
-      bottom: "15%",
-      containLabel: true,
-    },
+    grid: RESOLUTION_GRID,
     series,
   };
 
@@ -129,9 +175,7 @@ function DatasetChart({ data, urlKey, single = false }) {
 
       <Chart
         option={option}
-        style={single
-          ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
-          : { height: tokens.chart.height.panel, width: "100%" }}
+        style={chartStyle}
         notMerge={true}
         lazyUpdate={true}
       />

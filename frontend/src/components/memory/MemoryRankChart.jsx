@@ -1,6 +1,6 @@
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND, noDataGraphic } from "../../theme/chartChrome";
 import { variantSeriesStyle } from "../../theme/variant";
 
 /**
@@ -26,9 +26,14 @@ function MemoryRankChart({ data, ranking = "independent" }) {
     const memory = data ?? {};
     const runs = Object.keys(memory);
 
-    if (!runs.length) return null;
-
-    const series = [];
+    // No run selected — an empty A/B legend still shows what this chart
+    // compares, rather than a bare axis with nothing to explain it.
+    const series = runs.length
+        ? []
+        : [
+            { name: "A", type: "line", showSymbol: false, data: [], ...variantSeriesStyle("A", 0) },
+            { name: "B", type: "line", showSymbol: false, data: [], ...variantSeriesStyle("B", 0) },
+        ];
 
     let globalMaxRank = 0;
 
@@ -89,6 +94,8 @@ function MemoryRankChart({ data, ranking = "independent" }) {
             text: "A vs B Peak Memory Distribution",
             left: "center",
         },
+
+        graphic: runs.length ? undefined : noDataGraphic(),
 
         tooltip: {
             trigger: "axis",

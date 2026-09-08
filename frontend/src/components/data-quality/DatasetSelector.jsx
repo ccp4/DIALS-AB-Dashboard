@@ -20,6 +20,7 @@ function DatasetSelector({ runId, value, onChange }) {
     <Autocomplete
       options={datasets}
       value={value ?? null}
+      disabled={!runId}
       sx={{ width: 300 }}
       onChange={(event, dataset) => onChange(dataset)}
       renderInput={(params) => (

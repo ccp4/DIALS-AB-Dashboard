@@ -105,18 +105,24 @@ function RunMetricPanel({ title, run_ids, metric }) {
                     {title}
                 </Typography>
 
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={sync}
-                            onChange={(e) => handleSyncToggle(e.target.checked)}
-                        />
-                    }
-                    label="Synchronise charts"
-                />
+                {run_ids.length > 1 && (
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={sync}
+                                onChange={(e) => handleSyncToggle(e.target.checked)}
+                            />
+                        }
+                        label="Synchronise charts"
+                    />
+                )}
 
                 <Grid container spacing={2}>
-                    {run_ids.map(runId => (
+                    {run_ids.length === 0 ? (
+                        <Grid size={{ xs: 12 }}>
+                            <RunPanel metric={metric} single />
+                        </Grid>
+                    ) : run_ids.map(runId => (
                         <Grid size={{ xs: 12, md: run_ids.length === 1 ? 12 : 6 }} key={runId}>
                             <RunPanel
                                 runId={runId}

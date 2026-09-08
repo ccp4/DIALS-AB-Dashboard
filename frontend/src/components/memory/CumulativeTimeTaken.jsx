@@ -1,18 +1,20 @@
 import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM, summaryBoxGraphic } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "../../theme/chartChrome";
 import { niceCeil } from "../../theme/chartScale";
 import { abSummary } from "../../theme/abSummary";
 import { useApi } from "../../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {
-  const { data, loading } = useApi(`/runs/${run}/cumulative`);
+  const { data, loading } = useApi(run ? `/runs/${run}/cumulative` : null);
 
   if (loading) return <LoadingState label="Loading timings..." />;
-  if (!data?.A || !data?.B) return <p>No timing data</p>;
-  const bLookup = Object.fromEntries(data.B);
-  const points = data.A
+
+  const chartStyle = { height: tokens.chart.height.tall, width: tokens.chart.width.main };
+
+  const bLookup = Object.fromEntries(data?.B ?? []);
+  const points = (data?.A ?? [])
     .map(([dataset, aValue]) => ({
       dataset,
       A: aValue,
@@ -21,11 +23,22 @@ function CumulativeTimeTaken({ run }) {
     .filter((p) => Number.isFinite(p.A) && Number.isFinite(p.B))
     .map((p) => ({ value: [p.A, p.B], ...p }));
 
-  if (!points.length) {
-    return <p>No comparable datasets</p>;
-  }
-
   const maxValue = niceCeil(Math.max(...points.flatMap((p) => [p.A, p.B]), 1));
+
+  // No run selected, or a run with nothing comparable — same real-axes
+  // skeleton either way, just with nothing plotted.
+  if (!points.length) {
+    return (
+      <Chart
+        option={parityScatterSkeleton({
+          title: "Cumulative Runtime: A vs B",
+          xName: "A Runtime (s)",
+          yName: "B Runtime (s)",
+        })}
+        style={chartStyle}
+      />
+    );
+  }
 
   const { regression, text: regressionSummary } = abSummary(points, "lower");
 
@@ -126,7 +139,7 @@ function CumulativeTimeTaken({ run }) {
     series,
   };
 
-  return <Chart option={option} style={{ height: tokens.chart.height.tall, width: tokens.chart.width.main }} />;
+  return <Chart option={option} style={chartStyle} />;
 }
 
 export default CumulativeTimeTaken;

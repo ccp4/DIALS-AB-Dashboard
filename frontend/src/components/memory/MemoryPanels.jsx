@@ -90,7 +90,11 @@ export default function MemoryPanels({ runs }) {
 				<MemoryABChart data={data} />
 			</ErrorBoundary>
 
-			{Object.keys(data).map(run => (
+			{Object.keys(data).length === 0 ? (
+				<ErrorBoundary label="memory profile" resetKeys={runs}>
+					<MemoryProfilerPlot />
+				</ErrorBoundary>
+			) : Object.keys(data).map(run => (
 				<React.Fragment key={run}>
 					<h3>{run}</h3>
 					<ErrorBoundary label={`${run} memory profile`} resetKeys={[run]}>
@@ -99,7 +103,11 @@ export default function MemoryPanels({ runs }) {
 				</React.Fragment>
 			))}
 
-			{Object.keys(data).map(run => (
+			{Object.keys(data).length === 0 ? (
+				<ErrorBoundary label="cumulative timings" resetKeys={runs}>
+					<CumulativeTimeTaken />
+				</ErrorBoundary>
+			) : Object.keys(data).map(run => (
 				<React.Fragment key={run}>
 					<h3>{run} cumulative time taken</h3>
 					<ErrorBoundary label={`${run} cumulative timings`} resetKeys={[run]}>

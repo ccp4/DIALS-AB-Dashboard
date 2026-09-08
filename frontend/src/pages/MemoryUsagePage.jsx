@@ -14,17 +14,13 @@ export default function MemoryUsagePage(){
 				onChange={setSelectedRuns}
 			/>
 
-			{selectedRuns.length > 0 && (
-				<>
-					<ErrorBoundary label="Run provenance" resetKeys={selectedRuns}>
-						<RunProvenance runs={selectedRuns} />
-					</ErrorBoundary>
+			<ErrorBoundary label="Run provenance" resetKeys={selectedRuns}>
+				<RunProvenance runs={selectedRuns} />
+			</ErrorBoundary>
 
-					<ErrorBoundary label="Memory data" resetKeys={selectedRuns}>
-						<MemoryPanels runs={selectedRuns} />
-					</ErrorBoundary>
-				</>
-			)}
+			<ErrorBoundary label="Memory data" resetKeys={selectedRuns}>
+				<MemoryPanels runs={selectedRuns} />
+			</ErrorBoundary>
 		</>
 	)
 }

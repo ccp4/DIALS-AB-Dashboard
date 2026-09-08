@@ -4,6 +4,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from routers import runs
 from config import Settings
+from models import MetricDefinition
+from runs.metrics import METRICS
 
 app = FastAPI()
 settings = Settings()
@@ -47,5 +49,13 @@ async def root():
 @app.get("/ping")
 async def ping():
     return {"ok": True}
+
+@app.get("/metrics", response_model=list[MetricDefinition])
+async def get_metrics():
+    """
+    The metric registry, standalone — the same list every `/cohort` response
+    embeds, for callers that need it before any run is picked.
+    """
+    return METRICS
 
     

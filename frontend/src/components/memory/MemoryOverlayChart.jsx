@@ -1,6 +1,6 @@
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
-import { STANDARD_DATA_ZOOM, STANDARD_LEGEND } from "../../theme/chartChrome";
+import { STANDARD_DATA_ZOOM, STANDARD_LEGEND, noDataGraphic } from "../../theme/chartChrome";
 
 /** @param {"absolute"|"percent"} unit Controlled by the caller (`MemoryComparisonBlock`). */
 function MemoryOverlayChart({ data, unit = "absolute" }) {
@@ -8,10 +8,6 @@ function MemoryOverlayChart({ data, unit = "absolute" }) {
     const metric = unit === "percent"
         ? (A, B) => 100 * (A - B) / A
         : (A, B) => A - B;
-
-    if (!runs.length) {
-        return null;
-    }
 
     const sortedSeries = runs.map(run => {
         const sorted = (data[run] ?? [])
@@ -68,6 +64,7 @@ function MemoryOverlayChart({ data, unit = "absolute" }) {
             text: "A-B Ranked Memory",
             left: "center",
         },
+        graphic: runs.length ? undefined : noDataGraphic(),
         tooltip: {
             trigger: "axis",
             axisPointer: { type: "cross" },
