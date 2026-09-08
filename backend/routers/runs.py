@@ -1,80 +1,136 @@
 from fastapi import APIRouter, HTTPException
 from runs.service import RunService
+from workspace.factory import get_workspace
+from models import (
+    CohortResponse,
+    RunMetadata,
+    CCHalfResponse,
+    DatasetSeries,
+    MemoryRow,
+    MemoryProfile,
+    MemoryEventsResponse,
+    DatasetInfoResponse,
+)
 
 router = APIRouter(
     prefix="/runs",
     tags=["runs"],
 )
 
-service = RunService()
+workspace = get_workspace()
+service = RunService(workspace=workspace)
 
-@router.get("/")
-async def list_runs():
+def _ensure_run_exists(run_id: str):
+    if not service.run_exists(run_id):
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+def _ensure_dataset_exists(run_id: str, dataset: str):
+    if dataset not in service.get_datasets(run_id):
+        raise HTTPException(status_code=404, detail=f"Dataset '{dataset}' not found in run '{run_id}'")
+
+@router.get("")
+def list_runs():
     """
     Returns all available run folders in workspace area
     """
-    return service.list_run_summaries()
+    return service.list_runs()
 
-
-@router.get("/{run_id}")
-async def get_run(run_id: str):
+@router.get("/{run_id}", response_model=RunMetadata)
+def get_run_metatdata(run_id: str):
     """
-    Returns run metadata e.g. processed in cache
+    Returns run metadata e.g. datasets, processed in cache
     """
-    return service.get_run_summary(run_id=run_id)
+    _ensure_run_exists(run_id)
+    return service.get_run_metadata(run_id=run_id)
 
 @router.get("/{run_id}/raw")
-async def get_raw(run_id: str):
+def get_raw(run_id: str):
     """
     Returns raw data extracted from run folder
     """
+    _ensure_run_exists(run_id)
     return service.get_xia2_raw(run_id=run_id)
 
-@router.get("/{run_id}/interpolated")
-async def get_interpolated_points(run_id: str, x: float):
+@router.get("/{run_id}/dataset/{dataset:path}/raw", response_model=DatasetSeries)
+def get_raw_dataset(run_id: str, dataset: str):
+    _ensure_run_exists(run_id)
+    _ensure_dataset_exists(run_id, dataset)
+    result = service.get_xia2_dataset_raw(run_id, dataset)
+    return result
+
+@router.get("/{run_id}/dataset/{dataset:path}/comparison", response_model=DatasetSeries)
+def get_dataset_comparison(run_id: str, dataset: str):
+    _ensure_run_exists(run_id)
+    _ensure_dataset_exists(run_id, dataset)
+    result = service.get_xia2_dataset_comparison(run_id, dataset)
+    return result
+
+@router.get("/{run_id}/cc_half", response_model=CCHalfResponse)
+def get_cc_half(run_id: str):
     """
-    Returns interpolated points at given value for CC_half
+    Returns the DIALS-computed CC½ threshold crossing (d_min) per dataset,
+    for A and B — a direct extraction, not an interpolation.
     """
-    return service.get_cc_half_points(run_id=run_id, x=x)
+    _ensure_run_exists(run_id)
+    return service.get_cc_half(run_id=run_id)
 
 @router.get("/{run_id}/comparison")
-async def get_comparison(run_id: str):
+def get_comparison(run_id: str):
     """
     Returns comparison data extracted from run folder
     """
+    _ensure_run_exists(run_id)
     return service.get_xia2_comparison(run_id=run_id)
 
-@router.get("/{run_id}/memory")
-async def get_memory(run_id: str):
+@router.get("/{run_id}/memory", response_model=list[MemoryRow])
+def get_memory(run_id: str):
     """
     Returns memory data extracted from run folder
     """
+    _ensure_run_exists(run_id)
     return service.get_xia2_memory(run_id=run_id)
 
-@router.get("/{run_id}/memory/{dataset}")
-async def get_memory_plot(run_id: str, dataset: str):
+@router.get("/{run_id}/memory/{dataset:path}/events", response_model=MemoryEventsResponse)
+def get_memory_timings(run_id: str, dataset: str):
     """
     Returns memory data extracted from run folder
     """
-    return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
-
-@router.get("/{run_id}/memory/{dataset}/events")
-async def get_memory_timings(run_id: str, dataset: str):
-    """
-    Returns memory data extracted from run folder
-    """
+    _ensure_run_exists(run_id)
+    _ensure_dataset_exists(run_id, dataset)
     return service.get_xia2_dataset_timing(run_id=run_id, dataset=dataset)
 
-@router.get("/{run_id}/cumulative")
-async def get_cumulative_memory_timings(run_id: str):
+@router.get("/{run_id}/memory/{dataset:path}", response_model=MemoryProfile)
+def get_memory_plot(run_id: str, dataset: str):
     """
-    Returns cumulative memory TIMINGS 
+    Returns memory data extracted from run folder
     """
+    _ensure_run_exists(run_id)
+    _ensure_dataset_exists(run_id, dataset)
+    return service.get_xia2_dataset_memplot(run_id=run_id, dataset=dataset)
+
+@router.get("/{run_id}/cumulative", response_model=CCHalfResponse)
+def get_cumulative_memory_timings(run_id: str):
+    """
+    Returns cumulative memory TIMINGS
+    """
+    _ensure_run_exists(run_id)
     return service.get_xia2_dataset_cumulative_timings(run_id=run_id)
 
-@router.get("/{run_id}/info/{dataset}")
-async def get_info(run_id: str, dataset: str):
+@router.get("/{run_id}/info/{dataset:path}", response_model=DatasetInfoResponse)
+def get_info(run_id: str, dataset: str):
     """
     Returns unit cell and space group info about dataset
     """
+    _ensure_run_exists(run_id)
+    _ensure_dataset_exists(run_id, dataset)
     return service.get_xia2_cell_space(run_id=run_id, dataset=dataset)
+
+@router.get("/{run_id}/cohort", response_model=CohortResponse)
+def get_cohort(run_id: str):
+    """
+    Returns the per-sample cohort table: one row per (dataset, sample),
+    joining the xia2-summary.dat metrics with peak memory and cumulative
+    runtime. Every phase-4 view reads this and nothing else.
+    """
+    _ensure_run_exists(run_id)
+    return service.get_cohort(run_id=run_id)

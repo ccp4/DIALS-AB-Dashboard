@@ -21,8 +21,5 @@
   "homepage": "https://github.com/ccp4/DIALS-AB-Dashboard#readme",
   "devDependencies": {
     "concurrently": "^10.0.3"
-  },
-  "dependencies": {
-    "echarts-stat": "^1.2.0"
   }
 }

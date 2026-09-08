@@ -3,13 +3,20 @@ from pathlib import Path
 class LocalWorkspace:
 
     def __init__(self, root: str):
-        self.root = Path(root)
+        self.root = Path(root).resolve()
 
     def resolve(self, path: str) -> Path:
-        return self.root / path
+        candidate = (self.root / path).resolve()
+        if not candidate.is_relative_to(self.root):
+            raise ValueError(f"path '{path}' escapes the workspace root")
+
+        return candidate
 
     def exists(self, path: str) -> bool:
-        return self.resolve(path).exists()
+        try:
+            return self.resolve(path).exists()
+        except ValueError:
+            return False
 
     def list_dirs(self, path: str | None = None) -> list[str]:
         if path is None:

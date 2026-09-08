@@ -1,15 +1,50 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom"
 import DashboardLayout from "./components/DashboardLayout"
-import DataSetsPage from "./pages/DataSetsPage"
-import DataMemoryPage from "./pages/DataMemoryPage"
+import DataQualityPage from "./pages/DataQualityPage"
+import MemoryUsagePage from "./pages/MemoryUsagePage"
+import ExplorePage from "./pages/ExplorePage"
+import DatasetDetailPage from "./pages/DatasetDetailPage"
+import LandingPage from "./pages/LandingPage"
+import ErrorBoundary from "./components/ErrorBoundary"
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<DataMemoryPage />} />
-          <Route path="datasets" element={<DataSetsPage />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route element={<DashboardLayout />}>
+          <Route
+            path="memory"
+            element={
+              <ErrorBoundary label="Memory and timings">
+                <MemoryUsagePage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="datasets"
+            element={
+              <ErrorBoundary label="Data quality">
+                <DataQualityPage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="explore"
+            element={
+              <ErrorBoundary label="Explore">
+                <ExplorePage />
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="explore/dataset/:run/*"
+            element={
+              <ErrorBoundary label="Dataset detail">
+                <DatasetDetailPage />
+              </ErrorBoundary>
+            }
+          />
         </Route>
       </Routes>
     </BrowserRouter>
