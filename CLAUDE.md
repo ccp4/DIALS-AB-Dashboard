@@ -121,7 +121,8 @@ components/                 # shared components (Chart.jsx, ErrorBoundary.jsx, R
 components/memory/          # Memory Usage page's components
 components/data-quality/    # Data Quality page's components
 components/explore/         # Explore and Dataset Detail pages' components
-hooks/                      # useApi/useApiAll, useUrlParam/useUrlParamList/useUrlParamMap
+hooks/                      # useApi/useApiAll, useUrlParam/useUrlParamList/useUrlParamMap,
+                            # useRunsApi (useAllRuns/useListDatasets/useDatasetResource)
 theme/                      # tokens.js, chartChrome.js, chartScale.js, variant.js, metricFormat.js
 api/client.js               # the one fetch wrapper
 ```
@@ -370,8 +371,12 @@ unconditionally and use `requests` minus `Object.keys(data)` for a partial loadi
 on the aggregate `loading` boolean blanks already-loaded keys every time a new one is added.
 `MemoryPanels`/`CC_halfOverallPanel` do this.
 
-The `data-quality/use*.js` hooks are three-line named wrappers over `useApi` — a naming
-convenience, not a second idiom.
+`hooks/useRunsApi.js`'s three named hooks (`useAllRuns`/`useListDatasets`/`useDatasetResource`)
+are thin wrappers over `useApi` — a naming convenience, not a second idiom. Grouped in one file
+rather than one-per-file since each is a few lines and all three reshape the same `useApi` return
+value for a different `/runs` path; splitting them bought file-per-export purity at the cost of
+import boilerplate with nothing in return. Used across Data Quality, Explore, and the dataset
+detail page — not scoped to one page family, despite the name suggesting "runs."
 
 ### URL state
 

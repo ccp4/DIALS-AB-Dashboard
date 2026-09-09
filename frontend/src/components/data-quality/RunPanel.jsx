@@ -1,6 +1,6 @@
 import DatasetChart from "./DatasetChart";
-import DatasetSelector from "./DatasetSelector";
-import { useDatasetResource } from "./useDatasetResource";
+import DatasetSelector from "../DatasetSelector";
+import { useDatasetResource } from "../../hooks/useRunsApi";
 
 function RunPanel({ runId, metric, dataset, onDatasetChange, single }) {
 

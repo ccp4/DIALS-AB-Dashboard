@@ -3,8 +3,8 @@ import {
   TextField,
 } from "@mui/material";
 
-import LoadingState from "../LoadingState";
-import { useListDatasets } from "./useListDatasets";
+import LoadingState from "./LoadingState";
+import { useListDatasets } from "../hooks/useRunsApi";
 
 function DatasetSelector({ runId, value, onChange }) {
 

@@ -2,10 +2,10 @@ import { Autocomplete, Box, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 
 import CohortGrid from "../components/explore/CohortGrid";
-import DatasetSelector from "../components/data-quality/DatasetSelector";
+import DatasetSelector from "../components/DatasetSelector";
 import ErrorBoundary from "../components/ErrorBoundary";
 import RunProvenance from "../components/RunProvenance";
-import { useAllRuns } from "../components/data-quality/useAllRuns";
+import { useAllRuns } from "../hooks/useRunsApi";
 import { useUrlParam } from "../hooks/useUrlState";
 import { goToDataset } from "../navigation";
 

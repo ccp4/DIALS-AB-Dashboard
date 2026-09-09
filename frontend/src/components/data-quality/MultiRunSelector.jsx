@@ -4,7 +4,7 @@ import {
 } from "@mui/material";
 
 import LoadingState from "../LoadingState";
-import { useAllRuns } from "./useAllRuns";
+import { useAllRuns } from "../../hooks/useRunsApi";
 
 function MultiRunSelector({ value, onChange }) {
 

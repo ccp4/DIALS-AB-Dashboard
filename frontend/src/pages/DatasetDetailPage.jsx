@@ -2,14 +2,14 @@ import { Box, Typography } from "@mui/material";
 import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
 
 import DatasetChart from "../components/data-quality/DatasetChart";
-import DatasetSelector from "../components/data-quality/DatasetSelector";
-import { useDatasetResource } from "../components/data-quality/useDatasetResource";
+import DatasetSelector from "../components/DatasetSelector";
 import ErrorBoundary from "../components/ErrorBoundary";
 import LoadingState from "../components/LoadingState";
 import MemoryProfilerPlot from "../components/memory/MemoryProfilerPlot";
 import RunProvenance from "../components/RunProvenance";
 import WhatMovedStrip from "../components/explore/WhatMovedStrip";
 import { useApi } from "../hooks/useApi";
+import { useDatasetResource } from "../hooks/useRunsApi";
 import { goToDataset } from "../navigation";
 
 export default function DatasetDetailPage() {
