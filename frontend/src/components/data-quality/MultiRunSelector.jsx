@@ -21,6 +21,7 @@ function MultiRunSelector({ value, onChange }) {
       options={runs}
       value={value || []}
       onChange={(event, newValue) => onChange(newValue)}
+      sx={{ mb: 2 }}
       renderInput={(params) => (
         <TextField
           {...params}
