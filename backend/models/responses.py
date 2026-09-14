@@ -1,7 +1,5 @@
 """
-Response models for the typed endpoints. The whole-run `/raw` and
-`/comparison` stay untyped dicts on purpose — dev/test routes, no frontend
-consumer. See TODO.md section 4.
+Response models for the typed endpoints. `/resolution` and `/merging_stats` are dev/test routes
 """
 
 from pydantic import BaseModel

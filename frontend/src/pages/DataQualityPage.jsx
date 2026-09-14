@@ -17,9 +17,9 @@ export default function DataQualityPage() {
             </ErrorBoundary>
 
             <ErrorBoundary label="Data quality panels" resetKeys={selectedRuns}>
-                <RunMetricPanel title="Resolution estimates from dials.estimate_resolution" run_ids={selectedRuns} metric="raw" />
+                <RunMetricPanel title="Resolution estimates from dials.estimate_resolution" run_ids={selectedRuns} metric="resolution" />
 
-                <RunMetricPanel title="Merging statistics from xia2.compare_merging_stats" run_ids={selectedRuns} metric="comparison" />
+                <RunMetricPanel title="Merging statistics from xia2.compare_merging_stats" run_ids={selectedRuns} metric="merging_stats" />
 
                 <CC_halfOverallPanel runs={selectedRuns} />
             </ErrorBoundary>

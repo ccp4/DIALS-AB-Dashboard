@@ -20,10 +20,10 @@ intact) once it reaches `[x]` and needs no further action; do not delete history
 > plumbing, theme, provenance, the views, user-facing docs — see [ARCHIVE.md](ARCHIVE.md) section
 > 0). `MemoryABChart` and `MemoryRankChart` are *not* superseded by 8.3 and both stay — each shows
 > all selected runs at once on one page load, which the single-run-scoped `/explore` doesn't do.
-> `CC_halfOverallChart` moved off `/raw` onto its own `GET /runs/{run_id}/cc_half` endpoint (section
-> 6), not onto the cohort table as originally planned — see that entry for why. **This left `/raw`
-> (the whole-run route) with zero frontend consumers, but it stays deliberately** — kept as a
-> dev/test route rather than retired (see section 7).
+> `CC_halfOverallChart` moved off `/resolution` onto its own `GET /runs/{run_id}/cc_half` endpoint
+> (section 6), not onto the cohort table as originally planned — see that entry for why. **This left
+> `/resolution` (the whole-run route) with zero frontend consumers, but it stays deliberately** —
+> kept as a dev/test route rather than retired (see section 7).
 >
 > `backend/test_cohort.py` is the first test in the repo — `cd backend && venv/bin/python3 -m
 > pytest` runs it. Everything else is still `npm run dev` and looking at it.
@@ -64,8 +64,8 @@ in-flight component migration, 1c chart chrome/layout) because they had to happe
 Section 8's order. Each inherits 1a's tokens and 1c's chrome rather than establishing its own.
 8.2 (`MetricScatter`), 8.3 (`CohortGrid`), 8.5 (outlier callouts), 8.4 (the dataset detail page) and
 8.8 (the workbench — built, tried, reverted) are all done; see ARCHIVE.md section 0 phase 4 (and
-section 8, for each item's own detailed write-up). `CC_halfOverallChart` also moved off `/raw`
-(section 6), completing this phase.
+section 8, for each item's own detailed write-up). `CC_halfOverallChart` also moved off
+`/resolution` (section 6), completing this phase.
 
 **Standing note, not a task: `MemoryABChart` and `MemoryRankChart` are not superseded by 8.3 and
 both stay.** They first looked redundant with 8.3's per-metric panels (peak memory is one of the 11
@@ -77,8 +77,8 @@ retiring either without addressing this.
 
 ### Phase 5 — user-facing docs. Done — see ARCHIVE.md section 0
 
-Delta distributions, cross-filtered linked views, and `/raw` pagination were all reassessed and
-dropped as unnecessary.
+Delta distributions, cross-filtered linked views, and `/resolution` pagination were all reassessed
+and dropped as unnecessary.
 
 ---
 
@@ -130,10 +130,12 @@ confirmed to have zero callers; dispositions are from the author.
 
 ## 7. Deliberate — do not "fix"
 
-- The commented-out cache `load()` short-circuit in `RunService.get_xia2_raw` — deferred by choice.
-- `/raw` (the whole-run route) having zero frontend consumers, ever since `CC_halfOverallChart`
-  moved onto `GET /runs/{run_id}/cc_half` (section 6). Kept deliberately as a dev/test route rather
-  than retired — do not delete it, `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
+- The commented-out cache `load()` short-circuit in `RunService.get_xia2_resolution` — deferred by
+  choice.
+- `/resolution` (the whole-run route) having zero frontend consumers, ever since
+  `CC_halfOverallChart` moved onto `GET /runs/{run_id}/cc_half` (section 6). Kept deliberately as a
+  dev/test route rather than retired — do not delete it, `service.get_xia2_resolution`, or
+  `extract_xia2_resolution` as dead code.
 - `MemoryPanels` and `CC_halfOverallPanel` looking like pointless one-job wrappers around a chart.
   They exist so the fetch escalates to a boundary that does **not** contain the run selector.
   Inlining them back into the page is the obvious simplification and it reintroduces the failure

@@ -22,7 +22,7 @@ export function useListDatasets(runId, options) {
   };
 }
 
-/** One dataset's raw/comparison series for a given run and metric. */
+/** One dataset's resolution/merging_stats series for a given run and metric. */
 export function useDatasetResource(run_id, dataset, metric) {
   const { data, loading, error } = useApi(
     dataset ? `/runs/${run_id}/dataset/${dataset}/${metric}` : null

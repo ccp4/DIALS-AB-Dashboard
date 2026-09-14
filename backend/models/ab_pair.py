@@ -8,6 +8,7 @@ from typing import Generic, Optional, TypeVar
 
 from pydantic import BaseModel, computed_field
 
+# Generic type
 T = TypeVar("T")
 
 

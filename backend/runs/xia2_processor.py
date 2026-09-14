@@ -2,6 +2,7 @@ from models.ab_pair import ab_status
 
 
 def _clean_trace_data(raw_data):
+    """Drops trace entries that are empty, missing `x`/`y`, or have mismatched `x`/`y` lengths."""
     cleaned = []
 
     for item in raw_data:
@@ -16,10 +17,7 @@ def _clean_trace_data(raw_data):
     return cleaned
 
 def clean_xia2_data(raw_data: dict) -> dict:
-    # remove empty data points and note singleton values
-    # majority is 50,50 2,2
-
-    # remove empty sets
+    """Cleans every trace's `data` list in place, via `_clean_trace_data`."""
     for run, files in raw_data.items():
         for file, traces in files.items():
             for trace_name, trace_obj in traces.items():
@@ -43,6 +41,7 @@ def process_xia2_memory_data(raw_data: dict) -> list[dict]:
     return result
 
 def process_xia2_data(raw_data: dict) -> dict:
+    """Reshapes extracted run/file/trace data into `{run: {trace_name: [series, ...]}}` for front-end consumption"""
     result = {}
 
     for run, files in raw_data.items():
@@ -64,6 +63,9 @@ def process_xia2_data(raw_data: dict) -> dict:
     return result
 
 def _apache_series_builder(data: dict, file: str) -> dict | None:
+    """Builds one chart series `{"name": ..., "data": [[x, y], ...]}`,
+    prefixing the name with `"A - "`/`"B - "` for resolution files and
+    stripping HTML subscript tags DIALS embeds in some metric names."""
 
     if file == "dials.estimate_resolution-A.json":
         name = "A - " + data["name"]
@@ -72,8 +74,7 @@ def _apache_series_builder(data: dict, file: str) -> dict | None:
     elif file == "xia2.compare_merging_stats.json":
         name = data["name"]
     else:
-        # An unrecognised source file is skipped rather than crashing the
-        # whole extraction — the caller drops a `None` result.
+        # Unrecognised source files return None instead of raising; the caller drops it.
         return None
 
     if "sub" in name:
@@ -86,6 +87,7 @@ def _apache_series_builder(data: dict, file: str) -> dict | None:
     }
 
 def _cumulative_timing_lookup(cumulative_timing: dict) -> dict:
+    """Reindexes `{"A": [[key, value], ...], "B": [...]}` into `{key: {"A": value, "B": value}}`."""
     lookup = {}
 
     for variant in ("A", "B"):
@@ -96,10 +98,9 @@ def _cumulative_timing_lookup(cumulative_timing: dict) -> dict:
 
 def build_cohort(summary_records: list[dict], memory: dict, cumulative_timing: dict) -> tuple[list[dict], dict]:
     """
-    Joins the per-sample `xia2-summary.dat` records with the existing
-    peak-memory and cumulative-timing extractions, both keyed by the same
-    `"dataset/sample"` composite id (TODO phase 2b) — so this join is exact
-    even for the datasets with more than one sample.
+    Joins the per-sample `xia2-summary.dat` records with the peak-memory and
+    cumulative-timing extractions, keyed by the same `"dataset/sample"`
+    composite id — exact per sample, including multi-sample datasets.
     """
     timing_by_key = _cumulative_timing_lookup(cumulative_timing)
 

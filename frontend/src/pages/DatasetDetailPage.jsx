@@ -18,8 +18,8 @@ export default function DatasetDetailPage() {
     const navigate = useNavigate();
 
     const { data: cohort, loading } = useApi(`/runs/${run}/cohort`);
-    const { data: rawData } = useDatasetResource(run, dataset, "raw");
-    const { data: comparisonData } = useDatasetResource(run, dataset, "comparison");
+    const { data: resolutionData } = useDatasetResource(run, dataset, "resolution");
+    const { data: mergingStatsData } = useDatasetResource(run, dataset, "merging_stats");
 
     if (loading) return <LoadingState label="Loading cohort data..." />;
     if (!cohort) return null;
@@ -52,12 +52,12 @@ export default function DatasetDetailPage() {
 
             <Typography variant="h6">Resolution estimates from dials.estimate_resolution</Typography>
             <ErrorBoundary label="CC½ curve" resetKeys={[run, dataset]}>
-                <DatasetChart data={rawData} urlKey="raw" single />
+                <DatasetChart data={resolutionData} urlKey="resolution" single />
             </ErrorBoundary>
 
             <Typography variant="h6">Merging statistics from xia2.compare_merging_stats</Typography>
             <ErrorBoundary label="Comparison series" resetKeys={[run, dataset]}>
-                <DatasetChart data={comparisonData} urlKey="comparison" single />
+                <DatasetChart data={mergingStatsData} urlKey="merging_stats" single />
             </ErrorBoundary>
 
             <ErrorBoundary label="Memory profile" resetKeys={[run, dataset]}>

@@ -170,7 +170,7 @@ Two consequences worth internalising:
    split happens now — `_dataset_sample_path` and every extractor that used to do
    `dataset.split("/", 1)` by hand build on it instead. Routes declare it `{dataset:path}` so the
    embedded `/` survives routing — verified against a live instance, including with a fixed suffix
-   after it (e.g. `.../raw`). **One route-ordering trap this created:** where two routes share a
+   after it (e.g. `.../resolution`). **One route-ordering trap this created:** where two routes share a
    `{dataset:path}` prefix and one is a strict suffix-extension of the other
    (`/memory/{dataset:path}` vs `/memory/{dataset:path}/events`), the bare one must be declared
    *after* the more specific one, or Starlette's greedy `:path` match swallows the specific
@@ -185,29 +185,30 @@ Two consequences worth internalising:
   **Route handlers are deliberately plain `def`, not `async def`** — they call synchronous,
   IO-heavy extractors, so FastAPI must run them in its threadpool; making one `async` puts that
   work back on the event loop and stalls every other request (measured: `/ping` 3ms → 1107ms while
-  one `/raw` was in flight). Don't add `async` to a handler unless its body is genuinely awaitable
-  throughout. Every route calls `_ensure_run_exists(run_id)` first — a missing run 404s instead of
-  silent `200 []`.
-- **Extractor**: does all workspace I/O and file parsing. `_extract_json_files` (backs `/raw`,
-  `/comparison`) is the one extractor still walking `list_files()` and filtering by an exact
-  filename set. Everything else constructs the path directly —
+  one `/resolution` was in flight). Don't add `async` to a handler unless its body is genuinely
+  awaitable throughout. Every route depends on `valid_run` (and `valid_dataset`, which chains to
+  it, for dataset-scoped routes) — a missing run/dataset 404s instead of silent `200 []`.
+- **Extractor**: does all workspace I/O and file parsing. `_extract_json_files` (backs
+  `/resolution`, `/merging_stats`) is the one extractor still walking `list_files()` and filtering
+  by an exact filename set. Everything else constructs the path directly —
   `<run_id>/<dataset>/data/<sample>/{A,B}/<filename>` — rather than walking and filtering:
   `extract_xia2_summary`, `extract_xia2_timing`, `_extract_memory_files` (backing `/cumulative`
   and `/memory`, rewritten in TODO section 3 after profiling showed the `rglob` walk was the
   entire cost — 1.3–1.65s down to well under 0.2s each). Keep this pattern for anything new that
   needs per-sample identity or gets measurably slow at `list_files`'s expense.
-  `_extract_json_files` is deliberately left alone — not a measured bottleneck. `/raw` has zero
-  frontend consumers now but stays as a dev/test route (TODO section 7) — do not delete it,
-  `service.get_xia2_raw`, or `extract_xia2_raw` as dead code.
+  `_extract_json_files` is deliberately left alone — not a measured bottleneck. `/resolution` has
+  zero frontend consumers now but stays as a dev/test route (TODO section 7) — do not delete it,
+  `service.get_xia2_resolution`, or `extract_xia2_resolution` as dead code.
 - **Processor**: reshapes into ECharts-ready series. `build_cohort` is the one processor function
   that isn't reshaping for a chart — it's a join.
 - **Storage** (`FileSystemRunRepository`, `storage/local.py`): a JSON-cache implementation keyed
   `<run_id>/<resource>`, kept for potential future use but **not currently wired into
   `RunService`** — every request re-extracts from disk every time (hence the timing middleware in
   `main.py`). It previously backed three now-removed `RunMetadata` fields (`raw`/`comparison`/
-  `memory` booleans, sourced from `repo.exists()`) with no frontend consumer; those were dropped
-  along with the wiring rather than left reporting a permanently-`false` value. Re-wiring the cache
-  is a deliberate future decision, not a drive-by fix.
+  `memory` booleans — named for the routes as they were called then — sourced from
+  `repo.exists()`) with no frontend consumer; those were dropped along with the wiring rather than
+  left reporting a permanently-`false` value. Re-wiring the cache is a deliberate future decision,
+  not a drive-by fix.
 
 ### The series contract
 
@@ -269,8 +270,8 @@ sample, including for the 5 multi-sample datasets.
 `models/ab_pair.py` for `ABPair[T]`), re-exported from `models/__init__.py` so callers do
 `from models import X`. `CohortResponse` etc. now cover every route with a live frontend
 consumer — including `/memory`, `/cumulative`, `/info/{dataset}`, and the dataset-scoped
-`/dataset/{dataset}/raw`/`comparison`. Only the whole-run `/raw` and `/comparison` stay untyped
-dicts — confirmed dev/test routes with zero consumers.
+`/dataset/{dataset}/resolution`/`merging_stats`. Only the whole-run `/resolution` and
+`/merging_stats` stay untyped dicts — confirmed dev/test routes with zero consumers.
 
 **`models/ab_pair.py`'s `ABPair[T]`** is the one reusable type for "two comparable values, either
 side may be missing" — `status` is a computed field derived from A/B, never stored, so it can't
@@ -302,8 +303,8 @@ Which pattern to follow depends on the shape of the data the graph needs:
 
 Whichever shape: build the path directly — `<run_id>/<dataset>/data/<sample>/{A,B}/<filename>` —
 rather than walking and filtering (see "Extractor" above), add a Pydantic model in
-`models/responses.py`, and give any new route the same `_ensure_run_exists`/`_ensure_dataset_exists`
-guard every other route has.
+`models/responses.py`, and give any new route the same `valid_run`/`valid_dataset` dependency
+every other route has.
 
 ## Frontend
 
@@ -393,8 +394,8 @@ Both pages read selected runs from the **same `runs` parameter**, so a link carr
 across the two views. Also on the URL: `RunMetricPanel`'s per-run dataset choice/sync toggle
 (`${metric}_ds` map, `${metric}_sync`), `MemoryProfilerPlot`'s dataset (`ds_${run}`), and
 `DatasetChart`'s trace selection (`trace_${urlKey}`, `urlKey` supplied by the caller — `RunPanel`
-passes `${metric}_${runId}`, `DatasetDetailPage` passes `"raw"`/`"comparison"` — since more than
-one `DatasetChart` instance can be on screen at once and its two call sites don't share
+passes `${metric}_${runId}`, `DatasetDetailPage` passes `"resolution"`/`"merging_stats"` — since
+more than one `DatasetChart` instance can be on screen at once and its two call sites don't share
 identifying props).
 
 `/explore` deliberately does **not** share `runs` — it holds its own single-run `run` param,

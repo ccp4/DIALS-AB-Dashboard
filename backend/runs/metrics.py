@@ -1,12 +1,10 @@
 """
-The metric registry — the one place "is this metric better higher or lower"
-is decided, per CLAUDE.md's note that the dashboard has no single sign
-convention for "B improved". Served to the frontend as part of `/cohort` so
-metric metadata is never hardcoded on that side.
+The metric registry: one entry per xia2-summary.dat metric, with its label,
+unit, formatter, and whether higher or lower is better. Served to the
+frontend as part of `/cohort`.
 
-`better` is `None` where there genuinely isn't a direction: `low_resolution_limit`
-reflects data-collection geometry (detector distance, sweep coverage), not
-something either DIALS build makes better or worse.
+`better` is `None` where there's no real direction — e.g. `low_resolution_limit`
+reflects data-collection geometry, not something either DIALS build improves.
 """
 
 METRICS = [

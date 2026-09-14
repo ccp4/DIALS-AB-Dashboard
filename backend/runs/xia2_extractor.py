@@ -13,17 +13,13 @@ def _dataset_sample_path(run_id: str, dataset: str) -> str:
 
 def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
     """
-    Every selectable `"dataset/sample"` id for a run — always composite, even
-    for the common single-sample case, so nothing downstream has to special-case
-    which format an id is in.
+    Every selectable `"dataset/sample"` id for a run — always composite,
+    including single-sample datasets.
 
-    Derived from `datasets.txt` (one line per sample, path shape
-    `.../{dataset}/data/{sample}_master.h5`, confirmed against every run in the
-    workspace) instead of listing every dataset directory and then listing each
-    one's `data/` subdirectory — that walk cost ~227 dataset-directory listings
-    for one `/runs/{run_id}` request. A handful of manifest entries have no
-    local `data/{sample}` directory (aborted/incomplete processing), so each
-    candidate is still checked with `exists()` before being included.
+    Derived from `datasets.txt` (path shape
+    `.../{dataset}/data/{sample}_master.h5`). Each candidate is checked with
+    `exists()`, since some manifest entries have no local `data/{sample}`
+    directory (aborted/incomplete processing).
     """
     manifest = workspace.read_text(f"{run_id}/datasets.txt").splitlines()
 
@@ -40,18 +36,10 @@ def extract_xia2_datasets(workspace: Workspace, run_id: str) -> list:
 def extract_xia2_build_info(workspace: Workspace, run_id: str, datasets: list) -> dict:
     """
     The DIALS build (version + git hash) used for A and B, e.g.
-    `"DIALS 3.dev.1493-gf324578a1"` — the provenance CLAUDE.md's domain
-    conventions say is "on disk, unextracted": A tracks whatever main was at
-    run time, not a fixed baseline, so this is what makes a cross-run
-    comparison's confound visible instead of implied.
-
-    One build per variant is used for the whole run, logged identically in
-    every sample's `xia2-debug.txt` — so this checks the direct
-    `<dataset>/data/<sample>/{A,B}/xia2-debug.txt` path for each already-known
-    dataset/sample id in turn, stopping as soon as both are found, rather than
-    recursively walking every file in the run to find one by name. `datasets`
-    is `extract_xia2_datasets`'s output, passed in rather than recomputed since
-    the caller (`get_run_metadata`) already has it.
+    `"DIALS 3.dev.1493-gf324578a1"` — logged identically in every sample's
+    `xia2-debug.txt`. Checks each dataset/sample's `{A,B}/xia2-debug.txt`
+    directly, stopping once both variants are found. `datasets` is
+    `extract_xia2_datasets`'s output.
     """
     result = {"A": None, "B": None}
 
@@ -87,9 +75,8 @@ _SUMMARY_METRIC_LABELS = {
 }
 
 def _parse_xia2_summary(text: str) -> dict:
-    # Matched by label, not line number: the format is completely regular in
-    # every file checked (460/460 at 22 lines each), but a label match is
-    # free insurance against a future xia2 version reordering fields.
+    """Matches fields by label, not line position, even though the format is
+    completely regular (460/460 files checked, 22 lines each)."""
     parsed = {}
 
     for line in text.splitlines():
@@ -134,6 +121,8 @@ def extract_xia2_summary(workspace: Workspace, run_id: str) -> list[dict]:
     return records
 
 def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str):
+    """Memory-over-time trace for a sample, from mprofile.dat's
+    `MEM <mem_mb> <timestamp>` lines — reshaped to `[time, mem]` pairs for charting."""
     data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["mprofile.dat"]
@@ -158,7 +147,7 @@ def extract_xia2_dataset_memplot(workspace: Workspace, run_id:str, dataset: str)
     return res
 
 def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
-    """Builds the path directly rather than listing and filtering — called once per sample."""
+    """Builds the path directly for each variant, from `{A,B}/xia2-timing.json`. Called once per sample."""
     id_ = DatasetSampleId.parse(dataset)
     res = {"A": [], "B": []}
 
@@ -186,6 +175,8 @@ def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
     return res
 
 def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
+    """Cumulative runtime per dataset, summed from `extract_xia2_timing`'s
+    events. Shape: `{"A": [[dataset, value], ...], "B": [...]}`."""
     res = {"A": [],"B": []}
 
     for composite_id in extract_xia2_datasets(workspace=workspace, run_id=run_id):
@@ -202,8 +193,8 @@ def extract_xia2_cumulative_timing(workspace: Workspace, run_id: str):
     return res
 
 def extract_xia2_unit_cell_space(workspace: Workspace, run_id: str, dataset: str) -> dict:
-    """Unit cell and spacegroup are both single lines in the same
-    `xia2-summary.dat`, so one read per variant covers both."""
+    """Unit cell and spacegroup for each variant, both parsed from a single
+    read of `xia2-summary.dat`."""
     data_src = workspace.resolve(_dataset_sample_path(run_id, dataset))
     files = workspace.list_files(data_src)
     wanted = ["xia2-summary.dat"]
@@ -223,7 +214,7 @@ def extract_xia2_unit_cell_space(workspace: Workspace, run_id: str, dataset: str
 
     return {"unit_cell": unit_cell, "space_group": space_group}
 
-def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
+def extract_xia2_resolution(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(
         workspace,
         run_id,
@@ -233,13 +224,13 @@ def extract_xia2_raw(workspace: Workspace, run_id: str) -> dict:
         ]
     )
 
-def extract_xia2_dataset_raw(workspace: Workspace, run_id: str, dataset: str) -> dict:
-    return extract_xia2_raw(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
+def extract_xia2_dataset_resolution(workspace: Workspace, run_id: str, dataset: str) -> dict:
+    return extract_xia2_resolution(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
 
-def extract_xia2_dataset_comparison(workspace: Workspace, run_id: str, dataset: str) -> dict:
-    return extract_xia2_comparison(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
+def extract_xia2_dataset_merging_stats(workspace: Workspace, run_id: str, dataset: str) -> dict:
+    return extract_xia2_merging_stats(workspace=workspace, run_id=_dataset_sample_path(run_id, dataset))
 
-def extract_xia2_comparison(workspace: Workspace, run_id: str) -> dict:
+def extract_xia2_merging_stats(workspace: Workspace, run_id: str) -> dict:
     return _extract_json_files(
         workspace,
         run_id,
@@ -250,9 +241,9 @@ def extract_xia2_memory(workspace: Workspace, run_id: str) -> dict:
     return _extract_memory_files(workspace, run_id, "peak_memory-integrate.txt")
 
 def _sample_key(path: Path) -> str:
-    # Composite `"dataset/sample"` when the path is deep enough to have both
-    # (parts[1]/parts[3], per the workspace layout in CLAUDE.md); falls back
-    # the way the old dataset-only `_top_dir` did for shorter paths.
+    """Composite `"dataset/sample"` id (parts[1]/parts[3]) when the path is
+    deep enough to have both; falls back to just the dataset, or "overall",
+    for shallower paths."""
     if len(path.parts) > 3:
         return f"{path.parts[1]}/{path.parts[3]}"
     if len(path.parts) > 1:
@@ -260,6 +251,8 @@ def _sample_key(path: Path) -> str:
     return "overall"
 
 def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> dict:
+    """Walks `list_files()` and filters by an exact filename set — the one
+    extractor here that doesn't build the path directly."""
     files = workspace.list_files(workspace.resolve(run_id))
     wanted = set(names)
 
@@ -280,14 +273,9 @@ def extract_xia2_cc_half(workspace: Workspace, run_id: str) -> dict:
     The DIALS-computed CC½ threshold crossing (`d_min`) per dataset, for A and
     B. Not an interpolation — `dials.estimate_resolution-{A,B}.json`'s
     `cc_half.data` already carries the crossing as a marker line named
-    `"d_min = ... Å"`, whose x-coordinate (inverse-square-d units, same as the
-    curve's own x-axis) is the value; this reads it directly per
-    (dataset, sample) rather than downloading and grepping the whole `/raw`
-    payload client-side.
-
-    Shape matches `extract_xia2_cumulative_timing`: `{"A": [[dataset, value],
-    ...], "B": [...]}` — one entry per dataset that has a value for that
-    variant.
+    `"d_min = ... Å"`, whose x-coordinate (inverse-square-d units) is the
+    value, read directly per (dataset, sample). Shape matches
+    `extract_xia2_cumulative_timing`: `{"A": [[dataset, value], ...], "B": [...]}`.
     """
     result = {"A": [], "B": []}
 
@@ -308,7 +296,7 @@ def extract_xia2_cc_half(workspace: Workspace, run_id: str) -> dict:
     return result
 
 def _extract_memory_files(workspace: Workspace, run_id: str, filename: str) -> dict:
-    """Builds the path directly per (dataset, sample, variant) rather than listing and filtering."""
+    """Builds the path directly per (dataset, sample, variant)."""
     # Matches every number in the file; the peak value is the last one, e.g.
     # "mprofile-integrate.dat\t26186.895 MiB" -> ["26186.895"] -> 26186.895.
     pattern = re.compile(r"[-+]?\d*\.\d+|\d+")
