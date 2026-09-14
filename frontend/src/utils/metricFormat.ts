@@ -1,4 +1,4 @@
-export const FORMATTERS = {
+export const FORMATTERS: Record<string, (v: number) => string> = {
     resolution: (v) => `${v.toFixed(2)} Å`,
     percent: (v) => `${v.toFixed(1)}%`,
     ratio: (v) => v.toFixed(3),
@@ -6,14 +6,16 @@ export const FORMATTERS = {
     seconds: (v) => `${v.toFixed(1)} s`,
 };
 
-export function formatValue(value, formatter) {
+export function formatValue(value: number, formatter: string): string {
     const fn = FORMATTERS[formatter];
     return fn ? fn(value) : `${value}`;
 }
 
-// The 9 xia2-summary metrics are {overall, inner, outer}; peak_memory and
-// cumulative_runtime are flat numbers. One accessor for both shapes.
-export function metricValue(variant, key) {
+type ShellValue = { overall: number; inner: number; outer: number };
+type MetricEntry = number | ShellValue;
+
+/** Handles both metric shapes: `{overall, inner, outer}` and flat numbers. */
+export function metricValue(variant: Record<string, MetricEntry> | null | undefined, key: string): number | null {
     if (!variant) return null;
     const entry = variant[key];
     if (entry == null) return null;

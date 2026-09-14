@@ -1,6 +1,6 @@
 import { Chip, Stack } from "@mui/material";
 
-import { formatValue, metricValue } from "../../theme/metricFormat";
+import { formatValue, metricValue } from "../../utils/metricFormat";
 
 const WRAPPING_LABEL_SX = {
     height: "auto",

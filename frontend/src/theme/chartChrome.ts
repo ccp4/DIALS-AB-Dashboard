@@ -6,7 +6,7 @@
  */
 
 import { tokens } from "./tokens";
-import { niceCeil } from "./chartScale";
+import { niceCeil } from "../utils/chartScale";
 
 export const STANDARD_DATA_ZOOM = [
     { type: "inside" },
@@ -20,7 +20,7 @@ export const STANDARD_LEGEND = { top: 30 };
  * axes/legend but nothing plotted needs this to read as "waiting for a
  * selection" rather than "failed to load."
  */
-export function noDataGraphic(text = "No data") {
+export function noDataGraphic(text = "No data"): object[] {
     return [{
         type: "text",
         left: "center",
@@ -41,7 +41,14 @@ export function noDataGraphic(text = "No data") {
  * `axisLabelFormatter`, if given, applies to both axes (e.g. inverse-square-d
  * → Å for CC½).
  */
-export function parityScatterSkeleton({ title, xName, yName, axisLabelFormatter }) {
+interface ParityScatterSkeletonOptions {
+    title: string;
+    xName: string;
+    yName: string;
+    axisLabelFormatter?: (value: number) => string;
+}
+
+export function parityScatterSkeleton({ title, xName, yName, axisLabelFormatter }: ParityScatterSkeletonOptions) {
     const maxValue = niceCeil(1);
     const axisLabel = axisLabelFormatter ? { axisLabel: { formatter: axisLabelFormatter } } : {};
 
@@ -89,7 +96,13 @@ export function parityScatterSkeleton({ title, xName, yName, axisLabelFormatter 
  * per call site (e.g. MetricScatter keeps its own top-right placement).
  * Height is derived from the number of lines in `text`, not hardcoded.
  */
-export function summaryBoxGraphic(text, overrides = {}) {
+interface SummaryBoxOverrides {
+    position?: Record<string, string>;
+    width?: number;
+    style?: Record<string, unknown>;
+}
+
+export function summaryBoxGraphic(text: string, overrides: SummaryBoxOverrides = {}) {
     const {
         position = { right: "12%", bottom: "22%" },
         width = 150,

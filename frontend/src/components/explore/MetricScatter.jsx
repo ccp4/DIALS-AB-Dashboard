@@ -3,10 +3,10 @@ import { memo } from "react";
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic, noDataGraphic } from "../../theme/chartChrome";
-import { niceCeil, niceFloor } from "../../theme/chartScale";
-import { abSummary } from "../../theme/abSummary";
+import { niceCeil, niceFloor } from "../../utils/chartScale";
+import { abSummary } from "../../utils/abSummary";
 
-import { formatValue, metricValue } from "../../theme/metricFormat";
+import { formatValue, metricValue } from "../../utils/metricFormat";
 
 // Axis ticks need less precision than the raw data — an untruncated float
 // (e.g. from a padded min/max) eats horizontal space and shrinks the plot.

@@ -3,7 +3,7 @@ import { Autocomplete, TextField, Box } from "@mui/material";
 import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens, withAlpha } from "../../theme/tokens";
-import { niceCeil } from "../../theme/chartScale";
+import { niceCeil } from "../../utils/chartScale";
 import { noDataGraphic } from "../../theme/chartChrome";
 import { useApi } from "../../hooks/useApi";
 import { useUrlParam } from "../../hooks/useUrlState";

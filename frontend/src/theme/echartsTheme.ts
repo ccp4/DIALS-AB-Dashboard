@@ -7,9 +7,8 @@
  * whose first series is an identity line would hand A the third entry. Charts
  * set `tokens.variant.A` / `.B` explicitly per series instead.
  *
- * Grid margins are also left out. They depend on axis name length, which a
- * theme cannot see, so they belong to the per-chart chrome factory (TODO 1c)
- * rather than here.
+ * Grid margins are also left out — they depend on axis name length, which a
+ * theme cannot see, so each chart sets its own.
  *
  * Import once, from `main.jsx`, before anything renders a chart.
  */

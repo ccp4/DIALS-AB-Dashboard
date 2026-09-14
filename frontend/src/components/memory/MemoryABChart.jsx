@@ -2,8 +2,8 @@ import Chart from "../Chart";
 import NoDataChart from "../NoDataChart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "../../theme/chartChrome";
-import { niceCeil } from "../../theme/chartScale";
-import { abSummary } from "../../theme/abSummary";
+import { niceCeil } from "../../utils/chartScale";
+import { abSummary } from "../../utils/abSummary";
 
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit

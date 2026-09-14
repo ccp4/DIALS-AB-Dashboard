@@ -2,8 +2,8 @@ import Chart from "../Chart";
 import LoadingState from "../LoadingState";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "../../theme/chartChrome";
-import { niceCeil } from "../../theme/chartScale";
-import { abSummary } from "../../theme/abSummary";
+import { niceCeil } from "../../utils/chartScale";
+import { abSummary } from "../../utils/abSummary";
 import { useApi } from "../../hooks/useApi";
 
 function CumulativeTimeTaken({ run }) {

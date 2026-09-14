@@ -125,13 +125,13 @@ const palettes = {
 };
 
 /** A `#rrggbb` token plus an alpha channel, for translucent fills. */
-export function withAlpha(hex, a) {
+export function withAlpha(hex: string, a: number): string {
     const n = parseInt(hex.slice(1), 16);
 
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
-export const MODE = "light";
+export const MODE: "light" | "dark" = "light";
 
 export const tokens = {
     ...palettes[MODE],
