@@ -1,11 +1,23 @@
 import { Tooltip, Typography } from "@mui/material";
+import type { SxProps, Theme } from "@mui/material";
 
-/**
- * The "N / M complete · X missing A · Y missing B" line with a hover
- * tooltip listing the missing dataset/sample names — shared by `CohortGrid`
- * and `MemoryPanels`, which differ only in where coverage/labels come from.
- */
-function CoverageLine({ coverage, missingA, missingB, prefix, sx }) {
+interface Coverage {
+  complete: number;
+  total: number;
+  missing_a: number;
+  missing_b: number;
+}
+
+interface CoverageLineProps {
+  coverage: Coverage;
+  missingA: string[];
+  missingB: string[];
+  prefix?: string;
+  sx?: SxProps<Theme>;
+}
+
+/** The "N / M complete · X missing A · Y missing B" line with a hover tooltip listing the missing names. */
+function CoverageLine({ coverage, missingA, missingB, prefix, sx }: CoverageLineProps) {
     return (
         <Typography variant="body2" color="text.secondary" sx={sx}>
             {prefix}

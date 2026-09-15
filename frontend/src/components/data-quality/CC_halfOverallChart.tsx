@@ -6,7 +6,7 @@ import { niceCeil } from "../../utils/chartScale";
 import { abSummary } from "../../utils/abSummary";
 
 // Convert (1/d)^2 -> d
-function invSqToD(v) {
+function invSqToD(v: number | null | undefined): number | null {
     if (
         v == null ||
         Number.isNaN(v) ||
@@ -18,9 +18,22 @@ function invSqToD(v) {
     return 1 / Math.sqrt(v);
 }
 
-function formatD(v) {
+function formatD(v: number | null | undefined): string {
     const d = invSqToD(v);
     return d != null ? d.toFixed(2) : "—";
+}
+
+interface RunCCHalf {
+    A: [string, number][];
+    B: [string, number][];
+}
+
+interface CCHalfOverallChartProps {
+    data: Record<string, RunCCHalf>;
+}
+
+interface TooltipParam {
+    data: { label: string; A: number; B: number };
 }
 
 /**
@@ -37,14 +50,9 @@ function formatD(v) {
  *
  * Only datasets with a finite value for both variants are plotted; the count
  * of those that survive is reported in the callout as the denominator.
- *
- * @param {Object<string, {A: Array<[string, number]>, B: Array<[string, number]>}>} data
- *        Keyed by run id.
  */
-function CC_halfOverallChart({ data }) {
-
-    const memory = data ?? {};
-    const runs = Object.keys(memory);
+function CC_halfOverallChart({ data }: CCHalfOverallChartProps) {
+    const runs = Object.keys(data);
 
     if (!runs.length) {
         return (
@@ -77,18 +85,18 @@ function CC_halfOverallChart({ data }) {
             }}
         >
             {runs.map((run) => {
-                const runData = memory[run] ?? { A: [], B: [] };
+                const runData = data[run]!;
 
-                const aLookup = Object.fromEntries(runData.A ?? []);
-                const bLookup = Object.fromEntries(runData.B ?? []);
+                const aLookup = Object.fromEntries(runData.A);
+                const bLookup = Object.fromEntries(runData.B);
 
                 const points = Object.keys(aLookup)
                     .filter(dataset => Number.isFinite(aLookup[dataset]) && Number.isFinite(bLookup[dataset]))
                     .map(dataset => ({
-                        value: [aLookup[dataset], bLookup[dataset]],
+                        value: [aLookup[dataset]!, bLookup[dataset]!],
                         label: dataset,
-                        A: aLookup[dataset],
-                        B: bLookup[dataset],
+                        A: aLookup[dataset]!,
+                        B: bLookup[dataset]!,
                     }));
 
                 if (!points.length) {
@@ -109,7 +117,7 @@ function CC_halfOverallChart({ data }) {
 
                 const { regression, text: regressionSummary } = abSummary(points, "higher");
 
-                const identityLine = [];
+                const identityLine: [number, number][] = [];
                 const step = Math.max(maxValue / 100, 1);
 
                 for (let x = 0; x <= maxValue; x += step) {
@@ -186,7 +194,7 @@ function CC_halfOverallChart({ data }) {
                         axisPointer: {
                             type: "cross",
                         },
-                        formatter: params => {
+                        formatter: (params: TooltipParam) => {
                             const d = params.data;
 
                             return `

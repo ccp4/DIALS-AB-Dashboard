@@ -2,20 +2,26 @@ import { Alert, Box, Typography } from "@mui/material";
 
 import { useApiAll } from "../hooks/useApi";
 
+interface RunBuilds {
+    A: string | null;
+    B: string | null;
+}
+
+interface RunMetadata {
+    builds: RunBuilds;
+}
+
 /**
  * A is not a fixed baseline — it tracks whatever main was at run time, so a
  * difference between two runs may be baseline drift rather than an effect of
- * B (see the domain conventions in CLAUDE.md). This makes that confound
- * visible: each selected run's A/B build, and a warning when they differ.
- *
- * @param {string[]} runs Selected run ids.
+ * B. Surfaces each selected run's A/B build, and warns when they differ.
  */
-export default function RunProvenance({ runs }) {
-    const { data } = useApiAll(runs.map(run => ({ key: run, path: `/runs/${run}` })));
+export default function RunProvenance({ runs }: { runs: string[] }) {
+    const { data } = useApiAll<RunMetadata>(runs.map(run => ({ key: run, path: `/runs/${run}` })));
 
     const entries = runs
         .filter(run => run in data)
-        .map(run => ({ run, builds: data[run]?.builds ?? {} }));
+        .map(run => ({ run, builds: data[run]!.builds }));
 
     if (!entries.length) return null;
 

@@ -6,7 +6,13 @@ import {
 import LoadingState from "./LoadingState";
 import { useListDatasets } from "../hooks/useRunsApi";
 
-function DatasetSelector({ runId, value, onChange }) {
+interface DatasetSelectorProps {
+  runId: string | null;
+  value: string | null | undefined;
+  onChange: (dataset: string | null) => void;
+}
+
+function DatasetSelector({ runId, value, onChange }: DatasetSelectorProps) {
 
   const {
     datasets,
@@ -22,7 +28,7 @@ function DatasetSelector({ runId, value, onChange }) {
       value={value ?? null}
       disabled={!runId}
       sx={{ width: 300 }}
-      onChange={(event, dataset) => onChange(dataset)}
+      onChange={(_event, dataset) => onChange(dataset)}
       renderInput={(params) => (
         <TextField
           {...params}

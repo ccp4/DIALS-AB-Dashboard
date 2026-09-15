@@ -1,7 +1,16 @@
 import { ErrorBoundary as ReactErrorBoundary } from "react-error-boundary";
+import type { FallbackProps, ErrorBoundaryPropsWithRender } from "react-error-boundary";
 import { Alert, AlertTitle, Box, Button } from "@mui/material";
+import type { ReactNode } from "react";
 
-function Fallback({ label, error, resetErrorBoundary }) {
+interface DialsFallbackProps extends FallbackProps {
+    label?: string;
+}
+
+function Fallback({ label, error, resetErrorBoundary }: DialsFallbackProps) {
+    // Boundaries here only ever catch a thrown Error/ApiError
+    const err = error as Error & { status?: number };
+
     return (
         <Box sx={{ p: 2 }}>
             <Alert
@@ -15,8 +24,8 @@ function Fallback({ label, error, resetErrorBoundary }) {
                 <AlertTitle>
                     {label ? `${label} failed to render` : "Something went wrong"}
                 </AlertTitle>
-                {error.message}
-                {error.status === 0 && (
+                {err.message}
+                {err.status === 0 && (
                     <Box sx={{ mt: 1 }}>
                         A network-level failure looks the same whether the backend is down or CORS
                         is misconfigured. Check the backend is running, and that <code>VITE_API_URL</code>
@@ -28,20 +37,17 @@ function Fallback({ label, error, resetErrorBoundary }) {
     );
 }
 
+interface ErrorBoundaryProps extends Partial<Omit<ErrorBoundaryPropsWithRender, "fallbackRender">> {
+    label?: string;
+    children: ReactNode;
+}
+
 /**
- * Wraps `react-error-boundary` with the dashboard's fallback UI.
- *
- * Catches errors thrown during render only — errors in event handlers, in
- * `useEffect` callbacks and in promise rejections are not caught. Use the
- * library's `useErrorBoundary()` hook to forward those.
- *
- * @param {string}   [label]     Names the failing component in the alert and the console.
- * @param {any[]}    [resetKeys] Clears the error when any entry changes. Pass the selected
- *                               run(s) so changing selection retries. Forwarded to
- *                               `react-error-boundary`, as is any other prop.
- * @param {React.ReactNode} children
+ * Wraps `react-error-boundary` with the dashboard's fallback UI. Catches
+ * render errors only — forward event-handler/effect/promise errors by hand
+ * via the library's `useErrorBoundary()` hook.
  */
-export default function ErrorBoundary({ label, children, ...props }) {
+export default function ErrorBoundary({ label, children, ...props }: ErrorBoundaryProps) {
     return (
         <ReactErrorBoundary
             fallbackRender={({ error, resetErrorBoundary }) => (

@@ -5,20 +5,27 @@ import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "..
 import { niceCeil } from "../../utils/chartScale";
 import { abSummary } from "../../utils/abSummary";
 
+interface MemoryRow {
+    label: string;
+    A: number;
+    B: number;
+}
+
+interface MemoryABChartProps {
+    data: Record<string, MemoryRow[]>;
+}
+
+interface TooltipParam {
+    data: { label: string; A: number; B: number };
+}
+
 /**
  * One B-against-A parity scatter per run, with an identity line, a linear fit
- * and a summary callout.
- *
- * Only datasets with a finite value for both variants are plotted; the count of
- * those that survive is reported in the callout as the denominator.
- *
- * @param {Object<string, Array<{label: string, A: number, B: number}>>} data
- *        Peak memory in MiB, keyed by run id.
+ * and a summary callout. Only datasets with a finite value for both variants
+ * are plotted; the count of those that survive is the callout's denominator.
  */
-function MemoryABChart({ data }) {
-
-    const memory = data ?? {};
-    const runs = Object.keys(memory);
+function MemoryABChart({ data }: MemoryABChartProps) {
+    const runs = Object.keys(data);
 
     if (!runs.length) {
         return (
@@ -50,7 +57,7 @@ function MemoryABChart({ data }) {
             }}
         >
             {runs.map((run) => {
-                const runData = memory[run] ?? [];
+                const runData = data[run]!;
 
                 const points = runData
                     .filter(d => Number.isFinite(d.A) && Number.isFinite(d.B))
@@ -79,7 +86,7 @@ function MemoryABChart({ data }) {
 
                 const { regression, text: regressionSummary } = abSummary(points, "lower");
 
-                const identityLine = [];
+                const identityLine: [number, number][] = [];
                 const step = Math.max(maxValue / 100, 1);
 
                 for (let x = 0; x <= maxValue; x += step) {
@@ -156,7 +163,7 @@ function MemoryABChart({ data }) {
                         axisPointer: {
                             type: "cross",
                         },
-                        formatter: params => {
+                        formatter: (params: TooltipParam) => {
                             const d = params.data;
 
                             return `

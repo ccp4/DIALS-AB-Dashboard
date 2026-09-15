@@ -4,10 +4,11 @@
  */
 
 import ReactECharts from "echarts-for-react";
+import type { ComponentProps } from "react";
 
 import "../theme/echartsTheme";
 
-function Chart(props) {
+function Chart(props: ComponentProps<typeof ReactECharts>) {
     return <ReactECharts {...props} theme="dials" />;
 }
 

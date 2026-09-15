@@ -3,9 +3,32 @@ import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, STANDARD_LEGEND, noDataGraphic } from "../../theme/chartChrome";
 import { variantSeriesStyle } from "../../theme/variant";
 
+interface MemoryRow {
+    label: string;
+    A: number;
+    B: number;
+}
+
+interface RankedPoint {
+    value: number | null;
+    dataset: string;
+}
+
+interface TooltipParam {
+    marker: string;
+    seriesName: string;
+    axisValue: string | number;
+    data: RankedPoint;
+}
+
+interface MemoryRankChartProps {
+    data: Record<string, MemoryRow[]>;
+    ranking?: "independent" | "matched";
+}
+
 /**
- * Peak memory for every dataset, ranked high to low, with all selected runs on
- * shared axes.
+ * Peak memory for every dataset, ranked high to low, with all selected runs
+ * on shared axes.
  *
  * Independent ranking (default): A and B are ranked separately, so rank i is
  * generally a different dataset in each series. Matched ranking: B follows
@@ -13,35 +36,28 @@ import { variantSeriesStyle } from "../../theme/variant";
  * you can read off a per-dataset A/B difference at the cost of B's own line
  * no longer being sorted.
  *
- * The dataset name is carried on the point and shown in the tooltip rather
- * than on the axis. Colour carries the variant and line style carries the
- * run, since colour cannot carry both.
- *
- * @param {Object<string, Array<{label: string, A: number, B: number}>>} data
- *        Peak memory in MiB, keyed by run id.
- * @param {"independent"|"matched"} ranking
+ * Colour carries the variant, line style carries the run.
  */
-function MemoryRankChart({ data, ranking = "independent" }) {
+function MemoryRankChart({ data, ranking = "independent" }: MemoryRankChartProps) {
+    const runs = Object.keys(data);
 
-    const memory = data ?? {};
-    const runs = Object.keys(memory);
+    const series: Record<string, unknown>[] = [];
 
     // No run selected — an empty A/B legend still shows what this chart
     // compares, rather than a bare axis with nothing to explain it.
-    const series = runs.length
-        ? []
-        : [
+    if (!runs.length) {
+        series.push(
             { name: "A", type: "line", showSymbol: false, data: [], ...variantSeriesStyle("A", 0) },
             { name: "B", type: "line", showSymbol: false, data: [], ...variantSeriesStyle("B", 0) },
-        ];
+        );
+    }
 
     let globalMaxRank = 0;
 
     runs.forEach((run, runIndex) => {
+        const runData = data[run]!;
 
-        const runData = memory[run] ?? [];
-
-        let rankedA, rankedB;
+        let rankedA: RankedPoint[], rankedB: RankedPoint[];
 
         if (ranking === "matched") {
             const orderedByA = runData
@@ -54,10 +70,10 @@ function MemoryRankChart({ data, ranking = "independent" }) {
                 dataset: d.label,
             }));
         } else {
-            const ranked = key => runData
+            const ranked = (key: "A" | "B") => runData
                 .filter(d => Number.isFinite(d[key]))
                 .map(d => ({ value: d[key], dataset: d.label }))
-                .sort((a, b) => b.value - a.value);
+                .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
 
             rankedA = ranked("A");
             rankedB = ranked("B");
@@ -83,7 +99,6 @@ function MemoryRankChart({ data, ranking = "independent" }) {
         );
     });
 
-    // shared rank axis (largest needed)
     const ranks = Array.from(
         { length: globalMaxRank },
         (_, i) => i + 1
@@ -100,18 +115,18 @@ function MemoryRankChart({ data, ranking = "independent" }) {
         tooltip: {
             trigger: "axis",
             axisPointer: { type: "cross" },
-            formatter: params => {
+            formatter: (params: TooltipParam[]) => {
                 const rows = params
                     .filter(p => p.data && p.data.value != null)
                     .map(p =>
                         `${p.marker}${p.seriesName}: ${p.data.dataset}` +
-                        ` — ${p.data.value.toFixed(0)} MiB`
+                        ` — ${p.data.value!.toFixed(0)} MiB`
                     )
                     .join("<br/>");
 
                 if (!rows) return "";
 
-                return `<b>Rank ${params[0].axisValue}</b><br/>${rows}`;
+                return `<b>Rank ${params[0]!.axisValue}</b><br/>${rows}`;
             },
         },
 
