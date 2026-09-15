@@ -43,7 +43,7 @@ export default function LandingPage() {
                     minHeight: "calc(100vh - 64px)",
                 }}
             >
-                <Stack direction="row" spacing={4} justifyContent="center" flexWrap="wrap" useFlexGap sx={{ px: 3 }}>
+                <Stack direction="row" spacing={4} useFlexGap sx={{ px: 3, justifyContent: "center", flexWrap: "wrap" }}>
                     {DESTINATIONS.map((d) => (
                         <Box key={d.path} sx={{ textAlign: "center", width: 260 }}>
                             <Button

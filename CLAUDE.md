@@ -23,7 +23,7 @@ None of this is derivable from the code; all of it affects correctness.
 - **A is not a fixed baseline** — it tracks whatever main was at run time, not pinned per campaign
   (run 2700's A: `3.dev.1493-gf324578a1`; run 5400's A: `3.dev.1488-g893c8dfee`). **Cross-run
   comparisons are confounded** — a difference may be baseline drift, not an effect of B.
-  `MemoryRankChart` plots multiple runs on shared axes; `RunProvenance.jsx` (phase 3) warns when A
+  `MemoryRankChart` plots multiple runs on shared axes; `RunProvenance.tsx` (phase 3) warns when A
   builds differ but doesn't stop the chart plotting confounded data. `CC_halfOverallChart`/
   `MemoryABChart` use one parity scatter per run instead — own axes, so the confound doesn't apply.
 - **Exact builds extracted per variant** by `extract_xia2_build_info` (`xia2_extractor.py`) from
@@ -84,7 +84,7 @@ gitignored scratch file, not a test runner. Otherwise, verification means runnin
 
 `frontend/.env` (copied from `.env.copy`, gitignored):
 
-- `VITE_API_URL` — where the frontend looks for the backend. Optional locally (`src/api/client.js`
+- `VITE_API_URL` — where the frontend looks for the backend. Optional locally (`src/api/client.ts`
   falls back to `localhost:8000`). Inlined at build time — changing it needs a restart, not a
   reload.
 
@@ -113,18 +113,19 @@ workspace/local.py       # LocalWorkspace — reads WORKSPACE_DIR
 Frontend (`frontend/src/`):
 
 ```
-App.jsx                    # routes
-navigation.js               # goToDataset — the one cross-page navigation helper
+App.tsx                     # routes
+navigation.ts                # goToDataset — the one cross-page navigation helper
 pages/                      # one file per route (LandingPage, MemoryUsagePage, DataQualityPage,
                             # ExplorePage, DatasetDetailPage)
-components/                 # shared components (Chart.jsx, ErrorBoundary.jsx, RunProvenance.jsx, ...)
+components/                 # shared components (Chart.tsx, ErrorBoundary.tsx, RunProvenance.tsx, ...)
 components/memory/          # Memory Usage page's components
 components/data-quality/    # Data Quality page's components
 components/explore/         # Explore and Dataset Detail pages' components
 hooks/                      # useApi/useApiAll, useUrlParam/useUrlParamList/useUrlParamMap,
                             # useRunsApi (useAllRuns/useListDatasets/useDatasetResource)
-theme/                      # tokens.js, chartChrome.js, chartScale.js, variant.js, metricFormat.js
-api/client.js               # the one fetch wrapper
+theme/                      # tokens.ts, chartChrome.ts, echartsTheme.ts, variant.ts, muiTheme.ts
+utils/                      # chartScale.ts, abSummary.ts, metricFormat.ts — pure computation, no tokens dependency
+api/client.ts                # the one fetch wrapper
 ```
 
 ## Two separate data roots
@@ -308,7 +309,7 @@ every other route has.
 
 ## Frontend
 
-React 19 + Vite + MUI, charts via `echarts-for-react` — ECharts is the only charting library.
+React 19 + TypeScript + Vite + MUI, charts via `echarts-for-react` — ECharts is the only charting library.
 `echarts-stat` (regression lines in `MemoryABChart`/`CumulativeTimeTaken`) lives in
 `frontend/package.json`; the root `package.json` holds only `concurrently`. **Keep frontend
 dependencies in `frontend/`** — declaring one at the root resolves via Node walking up the tree,
@@ -316,7 +317,7 @@ which works locally and fails for anyone who installs only `frontend/`.
 
 ### Routing
 
-Routing in `src/App.jsx`: `/` → `LandingPage` (no `DashboardLayout`). `/memory` → `MemoryUsagePage`
+Routing in `src/App.tsx`: `/` → `LandingPage` (no `DashboardLayout`). `/memory` → `MemoryUsagePage`
 (memory + timings), `/datasets` → `DataQualityPage` (data quality), `/explore` → `ExplorePage`
 (cohort overview), `/explore/dataset/:run/*` → `DatasetDetailPage` (per-sample detail view) — these
 four render inside `DashboardLayout`.
@@ -324,16 +325,16 @@ four render inside `DashboardLayout`.
 **`explore/dataset/:run/*` is a splat route** — the composite `dataset/sample` id (always contains
 a literal `/`) is captured by the trailing `*`, the frontend analogue of the backend's
 `{dataset:path}`. `DatasetDetailPage` reads it via `useParams()["*"]`. Reachable two ways, both
-through one `goToDataset(navigate, run, dataset)` helper in `src/navigation.js`: a
+through one `goToDataset(navigate, run, dataset)` helper in `src/navigation.ts`: a
 `DatasetSelector` on `ExplorePage`, and an `onPointClick` prop on `MetricScatter` (wired through
-`CohortGrid`). `goToDataset` lives in its own module rather than in `ExplorePage.jsx` — a page
+`CohortGrid`). `goToDataset` lives in its own module rather than in `ExplorePage.tsx` — a page
 file exporting anything besides its default component trips this repo's
 `react-refresh/only-export-components` lint rule.
 
 ### Error boundaries
 
-`src/components/ErrorBoundary.jsx` wraps `react-error-boundary` with the dashboard's MUI fallback
-— used per-route (`App.jsx`) and per-chart. **Wrap new charts in it** — one throwing component
+`src/components/ErrorBoundary.tsx` wraps `react-error-boundary` with the dashboard's MUI fallback
+— used per-route (`App.tsx`) and per-chart. **Wrap new charts in it** — one throwing component
 used to blank the whole page, and with multi-second responses a blank page is indistinguishable
 from a slow one. Pass `resetKeys` (selected runs, or the run id) so changing selection retries
 instead of leaving the error stuck.
@@ -346,11 +347,11 @@ asynchronously outside those hooks still needs forwarding by hand.
 
 **One idiom. Do not add a bare `fetch` anywhere.**
 
-- `src/api/client.js` — `apiGet(path, {signal})`. Base URL from `VITE_API_URL`, falling back to
+- `src/api/client.ts` — `apiGet(path, {signal})`. Base URL from `VITE_API_URL`, falling back to
   `http://localhost:8000` (the only place that literal appears). Throws `ApiError` with a
   `status` field — **0 means a network-level failure** (backend down, CORS), not an HTTP error.
   Aborts rethrow the original `AbortError` unwrapped.
-- `src/hooks/useApi.js` — `useApi(path)` for one resource, `useApiAll([{key, path}])` for a keyed
+- `src/hooks/useApi.ts` — `useApi(path)` for one resource, `useApiAll([{key, path}])` for a keyed
   set. Both abort on input change and unmount. Pass `path: null` to skip a fetch whose input isn't
   chosen yet, rather than calling the hook conditionally.
 
@@ -362,7 +363,7 @@ Two things about these that are easy to break:
    are split for exactly this reason. Keep that shape, or pass `{throwOnError: false}` and handle
    it inline.
 2. **`useErrorBoundary()` throws if there is no boundary above the caller**, so every consumer must
-   render inside one. `App.jsx` covers both routes today.
+   render inside one. `App.tsx` covers both routes today.
 
 `useApiAll` caches by path for the component's lifetime and returns exactly the keys asked for —
 deselecting a run drops it without discarding its data, and reselecting doesn't refetch. It keys
@@ -372,7 +373,7 @@ unconditionally and use `requests` minus `Object.keys(data)` for a partial loadi
 on the aggregate `loading` boolean blanks already-loaded keys every time a new one is added.
 `MemoryPanels`/`CC_halfOverallPanel` do this.
 
-`hooks/useRunsApi.js`'s three named hooks (`useAllRuns`/`useListDatasets`/`useDatasetResource`)
+`hooks/useRunsApi.ts`'s three named hooks (`useAllRuns`/`useListDatasets`/`useDatasetResource`)
 are thin wrappers over `useApi` — a naming convenience, not a second idiom. Grouped in one file
 rather than one-per-file since each is a few lines and all three reshape the same `useApi` return
 value for a different `/runs` path; splitting them bought file-per-export purity at the cost of
@@ -381,7 +382,7 @@ detail page — not scoped to one page family, despite the name suggesting "runs
 
 ### URL state
 
-`src/hooks/useUrlState.js` — `useUrlParam`/`useUrlParamList`/`useUrlParamMap` over react-router's
+`src/hooks/useUrlState.ts` — `useUrlParam`/`useUrlParamList`/`useUrlParamMap` over react-router's
 `useSearchParams`. Writes use `replace`, so a multi-select doesn't fill the history. Setting a
 value to `null`/`undefined`/`""` removes it from the URL rather than writing a placeholder — for
 `useUrlParamMap` this matters per-entry (`setValue`'s `next` filters out `null` entries before
@@ -404,14 +405,14 @@ multi-run selection down to one.
 
 ### Chart conventions
 
-`src/theme/chartChrome.js` exports the ECharts option fragments shared across charts:
+`src/theme/chartChrome.ts` exports the ECharts option fragments shared across charts:
 `STANDARD_DATA_ZOOM`, `STANDARD_LEGEND`, and `summaryBoxGraphic(text, overrides)` — the regression-
 summary callout (teal outline, height derived from line count), used by every A/B parity chart.
 Grid margins and tooltip formatters differ per chart and stay inline. Chart sizing comes from
 `tokens.chart.height.*`/`tokens.chart.width.*` rather than literals — `single`/`main` give a chart
 the bigger, one-run treatment (`MemoryABChart`'s pattern); `panel`/`"100%"` is the multi-run default.
 
-`src/theme/chartScale.js`'s `niceCeil`/`niceFloor` round an axis bound to 2 significant figures —
+`src/utils/chartScale.ts`'s `niceCeil`/`niceFloor` round an axis bound to 2 significant figures —
 use these on any chart that pins `min`/`max` to a computed value, since that disables ECharts' own
 tick rounding and otherwise produces axis labels like `42343.234234`.
 

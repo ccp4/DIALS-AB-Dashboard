@@ -21,7 +21,7 @@ export default function ExplorePage() {
                     options={runs}
                     value={run}
                     loading={loading}
-                    onChange={(event, value) => setRun(value)}
+                    onChange={(_event, value) => setRun(value)}
                     sx={{ width: 400 }}
                     renderInput={(params) => (
                         <TextField {...params} variant="standard" label="Run" placeholder="Select a run" />

@@ -11,13 +11,34 @@ import WhatMovedStrip from "../components/explore/WhatMovedStrip";
 import { useApi } from "../hooks/useApi";
 import { useDatasetResource } from "../hooks/useRunsApi";
 import { goToDataset } from "../navigation";
+import type { MetricVariant } from "../utils/metricFormat";
+
+interface CohortRow {
+    dataset: string;
+    sample: string;
+    status: string;
+    A: MetricVariant | null;
+    B: MetricVariant | null;
+}
+
+interface Metric {
+    key: string;
+    label: string;
+    formatter: string;
+    better: "higher" | "lower" | null;
+}
+
+interface CohortResponse {
+    rows: CohortRow[];
+    metrics: Metric[];
+}
 
 export default function DatasetDetailPage() {
     const { run } = useParams();
     const dataset = useParams()["*"];
     const navigate = useNavigate();
 
-    const { data: cohort, loading } = useApi(`/runs/${run}/cohort`);
+    const { data: cohort, loading } = useApi<CohortResponse>(`/runs/${run}/cohort`);
     const { data: resolutionData } = useDatasetResource(run, dataset, "resolution");
     const { data: mergingStatsData } = useDatasetResource(run, dataset, "merging_stats");
 
@@ -39,7 +60,7 @@ export default function DatasetDetailPage() {
             </Box>
 
             <ErrorBoundary label="Run provenance" resetKeys={[run]}>
-                <RunProvenance runs={[run]} />
+                <RunProvenance runs={run ? [run] : []} />
             </ErrorBoundary>
 
             {row ? (
