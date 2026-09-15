@@ -55,8 +55,10 @@ export function useUrlParamList(key: string): [string[], (next: string[] | null 
     return [value, setValue];
 }
 
+type StringMap = Record<string, string | null | undefined>;
+
 /** The `key:value,...` encoding `useUrlParamMap` uses. `null` means "remove the param". */
-export function encodeParamMap(map: Record<string, string> | null | undefined): string | null {
+export function encodeParamMap(map: StringMap | null | undefined): string | null {
     const entries = Object.entries(map ?? {}).filter(([, v]) => v != null && v !== "");
     return entries.length ? entries.map(([k, v]) => `${k}:${v}`).join(",") : null;
 }
@@ -65,7 +67,7 @@ export function encodeParamMap(map: Record<string, string> | null | undefined): 
  * A `key:value` comma-joined map parameter, for per-item selections keyed by
  * a dynamic set of ids. `setValue` takes the full next map, not an updater.
  */
-export function useUrlParamMap(key: string): [Record<string, string>, (next: Record<string, string> | null | undefined) => void] {
+export function useUrlParamMap(key: string): [Record<string, string>, (next: StringMap | null | undefined) => void] {
     const [params, setParams] = useSearchParams();
 
     const raw = params.get(key);
@@ -78,7 +80,7 @@ export function useUrlParamMap(key: string): [Record<string, string>, (next: Rec
         );
     }, [raw]);
 
-    const setValue = useCallback((next: Record<string, string> | null | undefined) => {
+    const setValue = useCallback((next: StringMap | null | undefined) => {
         setParams(prev => {
             const updated = new URLSearchParams(prev);
             const encoded = encodeParamMap(next);

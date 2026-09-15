@@ -2,12 +2,7 @@ import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, STANDARD_LEGEND, noDataGraphic } from "../../theme/chartChrome";
 import { variantSeriesStyle } from "../../theme/variant";
-
-interface MemoryRow {
-    label: string;
-    A: number;
-    B: number;
-}
+import type { MemoryRow } from "./MemoryABChart";
 
 interface RankedPoint {
     value: number | null;
@@ -62,7 +57,7 @@ function MemoryRankChart({ data, ranking = "independent" }: MemoryRankChartProps
         if (ranking === "matched") {
             const orderedByA = runData
                 .filter(d => Number.isFinite(d.A))
-                .sort((a, b) => b.A - a.A);
+                .sort((a, b) => b.A! - a.A!);
 
             rankedA = orderedByA.map(d => ({ value: d.A, dataset: d.label }));
             rankedB = orderedByA.map(d => ({

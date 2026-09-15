@@ -9,35 +9,36 @@ import MemoryProfilerPlot from "./MemoryProfilerPlot";
 import CumulativeTimeTaken from "./CumulativeTimeTaken";
 import { useApiAll } from "../../hooks/useApi";
 
+interface MemoryStatusRow {
+	label: string;
+	A: number | null;
+	B: number | null;
+	status: "complete" | "missing_a" | "missing_b";
+}
+
 const DS_PREFIX = "ds_";
 
-function memoryCoverage(rows) {
+function memoryCoverage(rows: MemoryStatusRow[]) {
 	const counts = { complete: 0, missing_a: 0, missing_b: 0 };
 	rows.forEach(row => { counts[row.status] = (counts[row.status] ?? 0) + 1; });
 	return { total: rows.length, ...counts };
 }
 
 /**
- * The body of the memory and timings page.
- *
- * Split out from the page so the run selector sits *outside* the boundary that
- * this component's fetch escalates to — otherwise a failed request would take
- * the selector with it and leave no control to retry from.
- *
- * @param {string[]} runs Run ids to fetch peak memory for.
+ * The body of the memory and timings page. Split out from the page so the
+ * run selector sits *outside* the boundary that this component's fetch
+ * escalates to — otherwise a failed request would take the selector with it
+ * and leave no control to retry from.
  */
-export default function MemoryPanels({ runs }) {
-	const { data } = useApiAll(
+export default function MemoryPanels({ runs }: { runs: string[] }) {
+	const { data } = useApiAll<MemoryStatusRow[]>(
 		runs.map(run => ({ key: run, path: `/runs/${run}/memory` }))
 	);
 
-	// Each `MemoryProfilerPlot` instance owns a `ds_<run>` URL param
-	// (`useUrlParam` on its own `run` prop). Deselecting a run unmounts that
-	// instance, but a component can't safely clean up its own URL state from
-	// an unmount effect — StrictMode's mount/cleanup/mount probe would fire
-	// that cleanup for real on every initial mount and wipe out a dataset
-	// selection loaded straight from a link. So the parent, which stays
-	// mounted and knows the live `runs` list, prunes instead.
+	// Each `MemoryProfilerPlot` owns a `ds_<run>` URL param but can't safely
+	// clean it up on its own unmount — StrictMode's mount/cleanup/mount probe
+	// would fire that for real and wipe a link-loaded selection. The parent
+	// prunes stale ones instead, since it stays mounted with the live `runs` list.
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	useEffect(() => {
@@ -54,9 +55,7 @@ export default function MemoryPanels({ runs }) {
 		}, { replace: true });
 	}, [runs, searchParams, setSearchParams]);
 
-	// Runs already in `data` keep rendering; only the ones still in flight get
-	// a loading line, so adding a run to the selection doesn't blank the ones
-	// already on screen.
+	// Runs already in `data` keep rendering; only in-flight ones get a loading line.
 	const pending = runs.filter(run => !(run in data));
 
 	return (

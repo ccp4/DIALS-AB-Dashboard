@@ -8,44 +8,80 @@ import { noDataGraphic } from "../../theme/chartChrome";
 import { useApi } from "../../hooks/useApi";
 import { useUrlParam } from "../../hooks/useUrlState";
 
+type Sample = [number, number];
+
+interface TimingEvent {
+    command: string;
+    time_start: number;
+    time_end: number;
+    runtime: number;
+}
+
+interface MemoryProfile {
+    A: Sample[];
+    B: Sample[];
+}
+
+interface MemoryEvents {
+    A: TimingEvent[];
+    B: TimingEvent[];
+}
+
+interface ABPair {
+    A: string;
+    B: string;
+}
+
+interface DatasetInfo {
+    unit_cell: ABPair;
+    space_group: ABPair;
+}
+
+interface RunMetadata {
+    datasets: string[];
+}
+
 /**
  * Background bands for the three long-running stages. Drawn from the
  * non-variant palette on purpose: a blue or orange band would read as A or B
  * on a chart that is already entirely one variant.
  */
-const STAGE_BANDS = {
-  "dials.find_spots": withAlpha(tokens.series[2], 0.25),
-  "dials.index": withAlpha(tokens.series[4], 0.25),
-  "dials.integrate": withAlpha(tokens.series[0], 0.25),
+const STAGE_BANDS: Record<string, string> = {
+  "dials.find_spots": withAlpha(tokens.series[2]!, 0.25),
+  "dials.index": withAlpha(tokens.series[4]!, 0.25),
+  "dials.integrate": withAlpha(tokens.series[0]!, 0.25),
 };
 
 // Shown in place of `infoData` before a dataset is chosen — same shape
 // (`{section: {A, B}}`) as the real response, so the render logic below
 // doesn't need a separate branch for the empty case.
-const INFO_PLACEHOLDER = {
+const INFO_PLACEHOLDER: DatasetInfo = {
   unit_cell: { A: "—", B: "—" },
   space_group: { A: "—", B: "—" },
 };
 
-function relativeDuration(samples) {
+function relativeDuration(samples: Sample[] | undefined): number {
   if (!samples || samples.length === 0) return 0;
-  const t0 = samples[0][0];
+  const t0 = samples[0]![0];
   return Math.max(...samples.map(([t]) => t - t0));
 }
 
-function maxMemory(samples) {
+function maxMemory(samples: Sample[] | undefined): number {
   if (!samples || samples.length === 0) return 0;
   return Math.max(...samples.map(([, m]) => m));
 }
 
-function MemoryProfilerPlot({ run, fixedDataset }) {
+interface MemoryProfilerPlotProps {
+  run?: string;
+  fixedDataset?: string;
+}
+
+function MemoryProfilerPlot({ run, fixedDataset }: MemoryProfilerPlotProps) {
   const [urlDataset, setUrlDataset] = useUrlParam(`ds_${run}`);
   const selectedDataset = fixedDataset ?? urlDataset;
 
-  // `run` is optional — the zero-runs-selected skeleton renders one generic
-  // instance with no run at all, so there's nothing to fetch a dataset list
-  // for yet.
-  const { data: runInfo, loading: loadingDatasets } = useApi(
+  // `run` is optional — the zero-runs skeleton renders one generic instance with nothing to fetch yet.
+  const { data: runInfo, loading: loadingDatasets } = useApi<RunMetadata>(
     fixedDataset || !run ? null : `/runs/${run}`
   );
 
@@ -53,9 +89,9 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
     ? `/runs/${run}/memory/${selectedDataset}`
     : null;
 
-  const memory = useApi(memoryPath);
-  const commands = useApi(memoryPath && `${memoryPath}/events`);
-  const info = useApi(selectedDataset ? `/runs/${run}/info/${selectedDataset}` : null);
+  const memory = useApi<MemoryProfile>(memoryPath);
+  const commands = useApi<MemoryEvents>(memoryPath && `${memoryPath}/events`);
+  const info = useApi<DatasetInfo>(selectedDataset ? `/runs/${run}/info/${selectedDataset}` : null);
 
   const datasets = runInfo?.datasets ?? [];
 
@@ -65,22 +101,27 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
 
   const loadingMemory = memory.loading || commands.loading || info.loading;
 
-  // Shared axes so A and B render at the same pixel-per-unit scale —
-  // otherwise each chart auto-scales to its own data and a
-  // shorter/lower-peak run looks misleadingly similar to a
-  // longer/higher-peak one.
+  // Shared axes so A and B render at the same scale — otherwise each
+  // auto-scales and a smaller run looks misleadingly similar to a bigger one.
   const xMax = niceCeil(Math.max(relativeDuration(memoryData?.A), relativeDuration(memoryData?.B)) * 1.05 || 1);
   const yMax = niceCeil(Math.max(maxMemory(memoryData?.A), maxMemory(memoryData?.B)) * 1.05 || 1);
 
   if (loadingDatasets) return <LoadingState label="Loading datasets..." />;
 
-  const makeOption = (title, samples, commands, variant, xMax, yMax) => {
+  const makeOption = (
+    title: string,
+    samples: Sample[] | undefined,
+    commands: TimingEvent[] | undefined,
+    variant: "A" | "B",
+    xMax: number,
+    yMax: number
+  ) => {
     const hasData = samples && samples.length > 0;
-    const t0 = hasData ? samples[0][0] : 0;
+    const t0 = hasData ? samples[0]![0] : 0;
 
     const relative = hasData ? samples.map(([t, m]) => [t - t0, m]) : [];
 
-    const markAreas = hasData ? commands.map(cmd => {
+    const markAreas = hasData ? (commands ?? []).map(cmd => {
       const important = STAGE_BANDS[cmd.command];
 
       return [
@@ -173,9 +214,9 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
       {!fixedDataset && (
         <Autocomplete
           options={datasets}
-          value={selectedDataset}
+          value={selectedDataset ?? null}
           disabled={!run}
-          onChange={(event, value) => setUrlDataset(value)}
+          onChange={(_event, value) => setUrlDataset(value)}
           sx={{ width: 300, mb: 3 }}
           renderInput={(params) => (
             <TextField
@@ -192,11 +233,11 @@ function MemoryProfilerPlot({ run, fixedDataset }) {
       {!loadingMemory && (
         <>
           <div>
-            {Object.entries(infoData ?? INFO_PLACEHOLDER).map(([key, inner]) => (
+            {Object.entries(infoData ?? INFO_PLACEHOLDER).map(([key, inner]: [string, ABPair]) => (
               <div key={key}>
                 <h3>{key}</h3>
 
-                {Object.entries(inner).map(([k, v]) => (
+                {Object.entries(inner).map(([k, v]: [string, string]) => (
                   <div key={k}>
                     <strong>{k}:</strong> {v}
                   </div>

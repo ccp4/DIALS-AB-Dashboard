@@ -2,7 +2,15 @@ import DatasetChart from "./DatasetChart";
 import DatasetSelector from "../DatasetSelector";
 import { useDatasetResource } from "../../hooks/useRunsApi";
 
-function RunPanel({ runId, metric, dataset, onDatasetChange, single }) {
+interface RunPanelProps {
+    runId?: string;
+    metric: string;
+    dataset?: string | null;
+    onDatasetChange: (dataset: string | null) => void;
+    single?: boolean;
+}
+
+function RunPanel({ runId, metric, dataset, onDatasetChange, single }: RunPanelProps) {
 
     const { data } = useDatasetResource(runId, dataset, metric);
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import MemoryOverlayChart from "./MemoryOverlayChart";
 import MemoryRankChart from "./MemoryRankChart";
+import type { MemoryRow } from "./MemoryABChart";
 
 // Teal bar chrome (tokens.brand.primary via the MUI theme's "primary" palette)
 // needs its own toggle styling — the default outlined look assumes a plain
@@ -23,10 +24,14 @@ const TOGGLE_ON_BAR_SX = {
     },
 };
 
-function MemoryComparisonBlock({ data }) {
-    const [mode, setMode] = useState("diff");
-    const [unit, setUnit] = useState("absolute");
-    const [ranking, setRanking] = useState("independent");
+interface MemoryComparisonBlockProps {
+    data: Record<string, MemoryRow[]>;
+}
+
+function MemoryComparisonBlock({ data }: MemoryComparisonBlockProps) {
+    const [mode, setMode] = useState<"ab" | "diff">("diff");
+    const [unit, setUnit] = useState<"absolute" | "percent">("absolute");
+    const [ranking, setRanking] = useState<"independent" | "matched">("independent");
 
     return (
         <Box>
@@ -48,7 +53,7 @@ function MemoryComparisonBlock({ data }) {
                     exclusive
                     size="small"
                     sx={TOGGLE_ON_BAR_SX}
-                    onChange={(event, next) => next && setMode(next)}
+                    onChange={(_event, next: "ab" | "diff" | null) => next && setMode(next)}
                 >
                     <ToggleButton value="ab">A, B</ToggleButton>
                     <ToggleButton value="diff">A − B</ToggleButton>
@@ -60,7 +65,7 @@ function MemoryComparisonBlock({ data }) {
                         exclusive
                         size="small"
                         sx={TOGGLE_ON_BAR_SX}
-                        onChange={(event, next) => next && setRanking(next)}
+                        onChange={(_event, next: "independent" | "matched" | null) => next && setRanking(next)}
                     >
                         <ToggleButton value="independent">Independent</ToggleButton>
                         <ToggleButton value="matched">Matched to A</ToggleButton>
@@ -71,7 +76,7 @@ function MemoryComparisonBlock({ data }) {
                         exclusive
                         size="small"
                         sx={TOGGLE_ON_BAR_SX}
-                        onChange={(event, next) => next && setUnit(next)}
+                        onChange={(_event, next: "absolute" | "percent" | null) => next && setUnit(next)}
                     >
                         <ToggleButton value="absolute">MiB</ToggleButton>
                         <ToggleButton value="percent">%</ToggleButton>

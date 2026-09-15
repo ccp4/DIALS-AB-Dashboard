@@ -1,18 +1,44 @@
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
 import { STANDARD_DATA_ZOOM, STANDARD_LEGEND, noDataGraphic } from "../../theme/chartChrome";
+import type { MemoryRow } from "./MemoryABChart";
 
-/** @param {"absolute"|"percent"} unit Controlled by the caller (`MemoryComparisonBlock`). */
-function MemoryOverlayChart({ data, unit = "absolute" }) {
+interface RankedPoint {
+    value: number;
+    dataset: string;
+}
+
+interface SeriesEntry {
+    name: string;
+    type: string;
+    showSymbol: boolean;
+    data: RankedPoint[];
+    markLine?: object;
+}
+
+interface TooltipParam {
+    marker: string;
+    seriesName: string;
+    axisValue: string | number;
+    data?: RankedPoint;
+}
+
+interface MemoryOverlayChartProps {
+    data: Record<string, MemoryRow[]>;
+    /** Controlled by the caller (`MemoryComparisonBlock`). */
+    unit?: "absolute" | "percent";
+}
+
+function MemoryOverlayChart({ data, unit = "absolute" }: MemoryOverlayChartProps) {
     const runs = Object.keys(data);
     const metric = unit === "percent"
-        ? (A, B) => 100 * (A - B) / A
-        : (A, B) => A - B;
+        ? (A: number, B: number) => 100 * (A - B) / A
+        : (A: number, B: number) => A - B;
 
-    const sortedSeries = runs.map(run => {
-        const sorted = (data[run] ?? [])
+    const sortedSeries: SeriesEntry[] = runs.map(run => {
+        const sorted = data[run]!
             .map(item => ({
-                value: metric(item.A, item.B),
+                value: metric(item.A ?? 0, item.B ?? 0),
                 dataset: item.label,
             }))
             .filter(item => Number.isFinite(item.value))
@@ -33,7 +59,7 @@ function MemoryOverlayChart({ data, unit = "absolute" }) {
     const allNegativeRank = Math.max(...crossings);
 
     const maxLength = Math.max(
-        ...runs.map(run => (data[run] ?? []).length)
+        ...runs.map(run => data[run]!.length)
     );
 
     const rankLabels = Array.from(
@@ -41,12 +67,11 @@ function MemoryOverlayChart({ data, unit = "absolute" }) {
         (_, i) => i + 1
     );
 
-    
     const series = [...sortedSeries];
 
-    const crossingRank = Number.isFinite(allNegativeRank) ? rankLabels[allNegativeRank] : null;
+    const crossingRank = Number.isFinite(allNegativeRank) ? rankLabels[allNegativeRank]! : null;
 
-    if (crossingRank !== null) {
+    if (crossingRank !== null && series[0]) {
         series[0].markLine = {
             symbol: "none",
             lineStyle: {
@@ -68,21 +93,21 @@ function MemoryOverlayChart({ data, unit = "absolute" }) {
         tooltip: {
             trigger: "axis",
             axisPointer: { type: "cross" },
-            formatter: params => {
+            formatter: (params: TooltipParam[]) => {
                 const suffix = unit === "percent" ? "%" : " MiB";
                 const rows = params
                     .filter(p => p.data)
                     .map(p =>
-                        `${p.marker}${p.seriesName}: ${p.data.dataset}` +
-                        ` — ${p.data.value.toFixed(1)}${suffix}`
+                        `${p.marker}${p.seriesName}: ${p.data!.dataset}` +
+                        ` — ${p.data!.value.toFixed(1)}${suffix}`
                     )
                     .join("<br/>");
 
                 if (!rows) return "";
 
-                let text = `<b>Rank ${params[0].axisValue}</b><br/>${rows}`;
+                let text = `<b>Rank ${params[0]!.axisValue}</b><br/>${rows}`;
 
-                if (crossingRank !== null && Number(params[0].axisValue) === crossingRank) {
+                if (crossingRank !== null && Number(params[0]!.axisValue) === crossingRank) {
                     text += "<br/><br/>Beyond this rank, A − B goes negative — B starts using more memory than A.";
                 }
 

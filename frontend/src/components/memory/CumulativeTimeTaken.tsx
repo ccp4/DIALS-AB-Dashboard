@@ -6,8 +6,13 @@ import { niceCeil } from "../../utils/chartScale";
 import { abSummary } from "../../utils/abSummary";
 import { useApi } from "../../hooks/useApi";
 
-function CumulativeTimeTaken({ run }) {
-  const { data, loading } = useApi(run ? `/runs/${run}/cumulative` : null);
+interface CumulativeResponse {
+  A: [string, number][];
+  B: [string, number][];
+}
+
+function CumulativeTimeTaken({ run }: { run?: string }) {
+  const { data, loading } = useApi<CumulativeResponse>(run ? `/runs/${run}/cumulative` : null);
 
   if (loading) return <LoadingState label="Loading timings..." />;
 
@@ -21,7 +26,7 @@ function CumulativeTimeTaken({ run }) {
       B: bLookup[dataset] ?? null,
     }))
     .filter((p) => Number.isFinite(p.A) && Number.isFinite(p.B))
-    .map((p) => ({ value: [p.A, p.B], ...p }));
+    .map((p) => ({ ...p, B: p.B!, value: [p.A, p.B!] as [number, number] }));
 
   const maxValue = niceCeil(Math.max(...points.flatMap((p) => [p.A, p.B]), 1));
 
@@ -79,7 +84,7 @@ function CumulativeTimeTaken({ run }) {
       symbol: "none",
       silent: true,
       animation: false,
-      lineStyle: { color: tokens.series[0], width: 2 },
+      lineStyle: { color: tokens.series[0]!, width: 2, type: "solid" },
       z: 1,
     });
   }
@@ -93,7 +98,7 @@ function CumulativeTimeTaken({ run }) {
 
     tooltip: {
       trigger: "item",
-      formatter: (params) => {
+      formatter: (params: { data?: { dataset: string; A: number; B: number } }) => {
         const d = params.data;
 
         if (!d || d.dataset === undefined) return "";

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type { ChangeEvent } from "react";
 
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
@@ -6,15 +7,27 @@ import { STANDARD_DATA_ZOOM, noDataGraphic } from "../../theme/chartChrome";
 import { variantOf, variantSeriesStyle } from "../../theme/variant";
 import { useUrlParam } from "../../hooks/useUrlState";
 
-// Fixed regardless of which trace-group is active — shared by the skeleton
-// (no trace-group known yet) and the populated option below.
+interface TraceSeries {
+    name: string;
+    data: [number, number][];
+}
+
+type DatasetData = Record<string, TraceSeries[]>;
+
+interface AxisTooltipParam {
+    value: [number, number];
+    marker: string;
+    seriesName: string;
+}
+
+// Shared by both the skeleton and the populated chart.
 const RESOLUTION_X_AXIS = {
   type: "value",
   name: "Resolution (d)",
   nameLocation: "middle",
   nameGap: 30,
   axisLabel: {
-    formatter: (value) => {
+    formatter: (value: number) => {
       const d = Math.sqrt(1 / value);
       return d.toFixed(2);
     },
@@ -29,16 +42,16 @@ const RESOLUTION_GRID = {
   containLabel: true,
 };
 
-/**
- * @param {string} urlKey Makes the trace-selection URL param unique when
- *        more than one DatasetChart is on screen at once (e.g. one per
- *        selected run, or raw vs comparison).
- * @param {boolean} [single] Bigger, dedicated sizing (matches MemoryABChart's
- *        single-run case) — true when this is the only DatasetChart of its
- *        kind on screen (one run selected, or the per-sample detail page).
- */
-function DatasetChart({ data, urlKey, single = false }) {
-  const dataset = Array.isArray(data) ? data[0] : data;
+interface DatasetChartProps {
+  data: DatasetData | never[];
+  /** Makes the trace-selection URL param unique per `DatasetChart` instance. */
+  urlKey: string;
+  /** Bigger, dedicated sizing for a lone chart. */
+  single?: boolean;
+}
+
+function DatasetChart({ data, urlKey, single = false }: DatasetChartProps) {
+  const dataset = (Array.isArray(data) ? data[0] : data) as DatasetData | undefined;
   const keys = useMemo(() => Object.keys(dataset ?? {}), [dataset]);
   const [selectedKey, setSelectedKey] = useUrlParam(`trace_${urlKey}`);
 
@@ -46,13 +59,8 @@ function DatasetChart({ data, urlKey, single = false }) {
     ? { height: tokens.chart.height.single, width: tokens.chart.width.single }
     : { height: tokens.chart.height.panel, width: "100%" };
 
-  // Which trace-groups exist (the options below) is DIALS-driven, not fixed
-  // in code — unlike every other chart here, there's no known metric name to
-  // preview before data has loaded once. Only the x-axis is genuinely fixed
-  // regardless of which trace is active, so the skeleton is partial: real
-  // x-axis, blank y-axis, an A/B legend (this chart is always an A/B
-  // comparison whatever the metric), and the trace picker shown disabled
-  // rather than hidden.
+  // Trace groups are DIALS-driven, not known ahead of data, so the skeleton
+  // is partial: real x-axis, blank y-axis, an A/B legend, trace picker disabled.
   if (!dataset || keys.length === 0) {
     return (
       <>
@@ -86,22 +94,16 @@ function DatasetChart({ data, urlKey, single = false }) {
     );
   }
 
-  // Falls back to the first key without an effect: a selection left over
-  // from a previous dataset (or no selection yet) is derived during render,
-  // the way `useApi` derives `loading`, rather than synced afterwards.
-  const activeKey = keys.includes(selectedKey) ? selectedKey : keys[0];
+  // Falls back to the first key, derived during render rather than synced via an effect.
+  const activeKey = selectedKey != null && keys.includes(selectedKey) ? selectedKey : keys[0]!;
 
-  let traces = dataset[activeKey] ?? [];
+  // `activeKey` is always a real key of `dataset`.
+  const traces = dataset[activeKey]!;
 
-  // if (selectedKey === "cc_half" && traces.length != 0) {
-  //   traces = traces.filter(trace => trace.name.includes("fit"));
-  // }
+  // Colour carries the variant; line style separates same-variant traces.
+  const seen: Record<"A" | "B", number> = { A: 0, B: 0 };
 
-  // Colour carries the variant, so several traces of the same variant separate
-  // by line style instead.
-  const seen = { A: 0, B: 0 };
-
-  const series = traces.map(( trace , i) => {
+  const series = traces.map((trace, i) => {
     const variant = variantOf(trace.name);
 
     return {
@@ -111,12 +113,11 @@ function DatasetChart({ data, urlKey, single = false }) {
       data: trace.data,
       ...(variant ? variantSeriesStyle(variant, seen[variant]++) : {}),
     }})
-  
-  const isFitTrace = (name) => name.includes("fit");
+
+  const isFitTrace = (name: string) => name.includes("fit");
 
   const shouldSelectFits = activeKey === "cc_half" && traces.length > 0;
-  // If nothing matches "fit" (e.g. DIALS renamed the trace), fall back to
-  // showing everything rather than defaulting every trace to hidden.
+  // No match (e.g. DIALS renamed the trace) shows everything instead of hiding all.
   const anyFitTrace = traces.some(({ name }) => isFitTrace(name));
 
   const legend = {
@@ -128,14 +129,14 @@ function DatasetChart({ data, urlKey, single = false }) {
       ? Object.fromEntries(traces.map(({ name }) => [name, anyFitTrace ? isFitTrace(name) : true]))
       : undefined,
   };
-  
+
   const option = {
     tooltip: {
       trigger: "axis",
       axisPointer: { type: "cross" },
-      formatter: (params) => {
+      formatter: (params: AxisTooltipParam[]) => {
         if (!params.length) return "";
-        const xRaw = params[0].value[0];
+        const xRaw = params[0]!.value[0];
         const xDisplay =
           Math.sqrt(1 / xRaw).toFixed(3);
         let text = `x: ${xDisplay}<br/>`;
@@ -164,7 +165,7 @@ function DatasetChart({ data, urlKey, single = false }) {
     <>
       <select
         value={activeKey}
-        onChange={(e) => setSelectedKey(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLSelectElement>) => setSelectedKey(e.target.value)}
       >
         {keys.map((key) => (
           <option key={key} value={key}>

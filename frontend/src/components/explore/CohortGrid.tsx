@@ -8,21 +8,47 @@ import MetricScatter from "./MetricScatter";
 import { goToDataset } from "../../navigation";
 import { tokens } from "../../theme/tokens";
 import { useApi } from "../../hooks/useApi";
+import type { MetricVariant } from "../../utils/metricFormat";
+
+interface CohortRow {
+    dataset: string;
+    sample: string;
+    status: string;
+    A: MetricVariant | null;
+    B: MetricVariant | null;
+}
+
+interface Metric {
+    key: string;
+    label: string;
+    formatter: string;
+    better: "higher" | "lower" | null;
+}
+
+interface Coverage {
+    complete: number;
+    total: number;
+    missing_a: number;
+    missing_b: number;
+}
+
+interface CohortResponse {
+    rows: CohortRow[];
+    coverage: Coverage;
+    metrics: Metric[];
+}
 
 /**
  * The small-multiples cohort overview — one MetricScatter per registry
  * metric, all showing the same run's samples.
  *
  * With no run selected, the same grid still renders — one skeleton
- * MetricScatter per metric — via the standalone `/metrics` registry route,
- * since the metric list is static and known ahead of any run.
- *
- * @param {string|null} run Selected run id, or null if none selected yet.
+ * MetricScatter per metric — via the standalone `/metrics` registry route.
  */
-export default function CohortGrid({ run }) {
-    const [expandedKey, setExpandedKey] = useState(null);
-    const { data, loading: loadingCohort } = useApi(run ? `/runs/${run}/cohort` : null);
-    const { data: metricsOnly, loading: loadingMetrics } = useApi(run ? null : "/metrics");
+export default function CohortGrid({ run }: { run: string | null }) {
+    const [expandedKey, setExpandedKey] = useState<string | null>(null);
+    const { data, loading: loadingCohort } = useApi<CohortResponse>(run ? `/runs/${run}/cohort` : null);
+    const { data: metricsOnly, loading: loadingMetrics } = useApi<Metric[]>(run ? null : "/metrics");
     const navigate = useNavigate();
 
     if (run ? loadingCohort : loadingMetrics) {
@@ -35,7 +61,7 @@ export default function CohortGrid({ run }) {
     const rows = data?.rows ?? [];
 
     const expandedMetric = metrics.find((m) => m.key === expandedKey) ?? null;
-    const onPointClick = (sampleId) => goToDataset(navigate, run, sampleId);
+    const onPointClick = (sampleId: string) => goToDataset(navigate, run, sampleId);
 
     const missingA = rows.filter(r => r.status === "missing_a").map(r => `${r.dataset}/${r.sample}`);
     const missingB = rows.filter(r => r.status === "missing_b").map(r => `${r.dataset}/${r.sample}`);

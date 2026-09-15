@@ -7,7 +7,7 @@ import LoadingState from "./LoadingState";
 import { useListDatasets } from "../hooks/useRunsApi";
 
 interface DatasetSelectorProps {
-  runId: string | null;
+  runId: string | null | undefined;
   value: string | null | undefined;
   onChange: (dataset: string | null) => void;
 }

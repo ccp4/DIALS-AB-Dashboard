@@ -1,4 +1,5 @@
 import { memo } from "react";
+import type { CSSProperties } from "react";
 
 import Chart from "../Chart";
 import { tokens } from "../../theme/tokens";
@@ -7,10 +8,57 @@ import { niceCeil, niceFloor } from "../../utils/chartScale";
 import { abSummary } from "../../utils/abSummary";
 
 import { formatValue, metricValue } from "../../utils/metricFormat";
+import type { MetricVariant } from "../../utils/metricFormat";
+
+interface CohortRow {
+    dataset: string;
+    sample: string;
+    A: MetricVariant | null;
+    B: MetricVariant | null;
+}
+
+interface Metric {
+    key: string;
+    label: string;
+    formatter: string;
+    better: "higher" | "lower" | null;
+}
+
+interface RawPoint {
+    sampleId: string;
+    A: number | null;
+    B: number | null;
+}
+
+interface ScatterPoint {
+    sampleId: string;
+    A: number;
+    B: number;
+}
+
+interface ItemTooltipParam {
+    data?: ScatterPoint;
+}
+
+interface ClickParam {
+    componentType: string;
+    seriesType?: string;
+    data: ScatterPoint;
+    event?: { event?: { stopPropagation: () => void } };
+}
+
+interface MetricScatterProps {
+    rows: CohortRow[];
+    metric: Metric;
+    style?: CSSProperties;
+    /** Show the dataZoom slider — off by default so a small-multiples grid isn't squashed by it. */
+    enableZoom?: boolean;
+    onPointClick?: (sampleId: string) => void;
+}
 
 // Axis ticks need less precision than the raw data — an untruncated float
 // (e.g. from a padded min/max) eats horizontal space and shrinks the plot.
-function formatAxisTick(value) {
+function formatAxisTick(value: number): string {
     if (Math.abs(value) >= 100) return value.toFixed(0);
     if (Math.abs(value) >= 10) return value.toFixed(1);
     return value.toFixed(2);
@@ -19,25 +67,19 @@ function formatAxisTick(value) {
 /**
  * One B-against-A parity scatter for a single cohort metric, with an
  * identity line, a linear fit and a summary callout.
- *
- * @param {object[]} rows Cohort rows (CohortResponse.rows).
- * @param {{key: string, label: string, unit: string, formatter: string, better: string|null}} metric
- * @param {object} [style] Passed straight to the underlying Chart.
- * @param {boolean} [enableZoom] Show the dataZoom slider — off by default so a
- *        small-multiples grid isn't squashed by it; the expanded (clicked-into) view turns it on.
  */
-function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }) {
-    const points = rows
-        .map((row) => ({
-            sampleId: `${row.dataset}/${row.sample}`,
-            A: metricValue(row.A, metric.key),
-            B: metricValue(row.B, metric.key),
-        }))
-        .filter((p) => Number.isFinite(p.A) && Number.isFinite(p.B));
+function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }: MetricScatterProps) {
+    const rawPoints: RawPoint[] = rows.map((row) => ({
+        sampleId: `${row.dataset}/${row.sample}`,
+        A: metricValue(row.A, metric.key),
+        B: metricValue(row.B, metric.key),
+    }));
 
-    // No rows yet (no run selected) and "rows exist but nothing comparable"
-    // get the same real-axes skeleton — just with a default domain, since
-    // there's nothing to derive one from.
+    const points: ScatterPoint[] = rawPoints.filter(
+        (p): p is ScatterPoint => Number.isFinite(p.A) && Number.isFinite(p.B)
+    );
+
+    // No rows and "nothing comparable" share the same skeleton, with a default domain.
     const allValues = points.flatMap((p) => [p.A, p.B]);
     const min = points.length ? Math.min(...allValues) : 0;
     const max = points.length ? Math.max(...allValues) : 1;
@@ -47,16 +89,15 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
 
     const { regression, lines: summaryLines } = points.length
         ? abSummary(points, metric.better)
-        : { regression: null, lines: [] };
+        : { regression: null, lines: [] as string[] };
 
     const identityLine = [
         [domainMin, domainMin],
         [domainMax, domainMax],
     ];
 
-    // The N points furthest from the parity line get a distinct colour
-    // instead of a label — self-identifying without hovering, and without
-    // the overlap risk a text label would have at this size (TODO 8.5).
+    // The N points furthest from parity get a distinct colour instead of a
+    // label — avoids the overlap risk a text label would have at this size.
     const OUTLIER_COUNT = 5;
     const outlierIds = new Set(
         [...points]
@@ -114,11 +155,9 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
     const option = {
         title: { text: metric.label, left: "center" },
 
-        // Grid view (no zoom): the shared box, bottom-centered so it stays
-        // clear of the plot's own bottom-right corner. Expanded view (zoom
-        // on): the shared bottom-right box — summaryBoxGraphic's default
-        // bottom offset already clears a STANDARD_DATA_ZOOM slider on every
-        // other chart that uses both.
+        // Grid view: bottom-centered, clear of the plot's own corner. Expanded
+        // view: bottom-right — summaryBoxGraphic's default offset already
+        // clears the dataZoom slider.
         graphic: !points.length
             ? noDataGraphic()
             : summaryLines.length
@@ -132,9 +171,9 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
 
         tooltip: {
             trigger: "item",
-            formatter: (params) => {
+            formatter: (params: ItemTooltipParam) => {
                 const d = params.data;
-                if (!d || d.A === undefined) return "";
+                if (!d) return "";
                 return `
                     <b>${d.sampleId}</b><br/>
                     A: ${formatValue(d.A, metric.formatter)}<br/>
@@ -167,12 +206,9 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
             scale: true,
         },
 
-        // Fixed, not containLabel, and never varies with this panel's own
-        // content (tick label width, summary line count): every panel gets
-        // the identical plot-box shape. Margins sized for the worst case (3
-        // summary lines) so a panel with fewer just has blank space there
-        // rather than a differently-shaped plot area. Expanded (zoom) needs
-        // extra bottom room for both the box and the dataZoom slider below it.
+        // Fixed margins, not containLabel, so every panel gets an identical
+        // plot-box shape regardless of tick/summary length. Sized for the
+        // worst case (3 summary lines); expanded (zoom) needs extra bottom room.
         grid: enableZoom
             ? { left: 56, right: 20, top: 44, bottom: 110 }
             : { left: 56, right: 20, top: 44, bottom: 92 },
@@ -187,7 +223,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
             lazyUpdate
             style={style}
             onEvents={{
-                click: (params) => {
+                click: (params: ClickParam) => {
                     if (params.componentType !== "series" || params.seriesType !== "scatter") return;
                     params.event?.event?.stopPropagation();
                     onPointClick?.(params.data.sampleId);

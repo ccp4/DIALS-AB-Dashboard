@@ -12,19 +12,29 @@ import RunPanel from "./RunPanel";
 import { encodeParamMap, useUrlParam, useUrlParamMap } from "../../hooks/useUrlState";
 import { useApiAll } from "../../hooks/useApi";
 
-function RunMetricPanel({ title, run_ids, metric }) {
+interface RunMetadata {
+    datasets: string[];
+}
+
+interface RunMetricPanelProps {
+    title: string;
+    run_ids: string[];
+    metric: string;
+}
+
+function RunMetricPanel({ title, run_ids, metric }: RunMetricPanelProps) {
 
     const [syncRaw, setSyncRaw] = useUrlParam(`${metric}_sync`);
     const sync = syncRaw === "1";
-    const setSync = (enabled) => setSyncRaw(enabled ? "1" : null);
+    const setSync = (enabled: boolean) => setSyncRaw(enabled ? "1" : null);
 
     const [datasets, setDatasets] = useUrlParamMap(`${metric}_ds`);
     const [, setSearchParams] = useSearchParams();
 
     // Which datasets each run actually has — sync must not point a run at a
     // dataset name that belongs to a different run.
-    const { data: runInfo } = useApiAll(run_ids.map(id => ({ key: id, path: `/runs/${id}` })));
-    const datasetsFor = (runId) => runInfo[runId]?.datasets ?? [];
+    const { data: runInfo } = useApiAll<RunMetadata>(run_ids.map(id => ({ key: id, path: `/runs/${id}` })));
+    const datasetsFor = (runId: string) => runInfo[runId]?.datasets ?? [];
 
     useEffect(() => {
         const next = Object.fromEntries(
@@ -48,11 +58,11 @@ function RunMetricPanel({ title, run_ids, metric }) {
         }
     }, [run_ids, datasets, sync, runInfo, setDatasets]);
 
-    const handleDatasetChange = (changedRunId, dataset) => {
+    const handleDatasetChange = (changedRunId: string, dataset: string | null) => {
         if (sync) {
-            const syncedDatasets = {};
+            const syncedDatasets: Record<string, string | null> = {};
             run_ids.forEach(runId => {
-                if (datasetsFor(runId).includes(dataset)) {
+                if (dataset != null && datasetsFor(runId).includes(dataset)) {
                     syncedDatasets[runId] = dataset;
                 }
             });
@@ -66,13 +76,14 @@ function RunMetricPanel({ title, run_ids, metric }) {
         }
     };
 
-    const handleSyncToggle = (enabled) => {
+    const handleSyncToggle = (enabled: boolean) => {
         if (!enabled) {
             setSync(false);
             return;
         }
 
-        const firstSelected = datasets[run_ids[0]];
+        // Only rendered (and so only callable) when run_ids.length > 1.
+        const firstSelected = datasets[run_ids[0]!];
         setSearchParams(prev => {
             const updated = new URLSearchParams(prev);
             updated.set(`${metric}_sync`, "1");
@@ -120,7 +131,7 @@ function RunMetricPanel({ title, run_ids, metric }) {
                 <Grid container spacing={2}>
                     {run_ids.length === 0 ? (
                         <Grid size={{ xs: 12 }}>
-                            <RunPanel metric={metric} single />
+                            <RunPanel metric={metric} onDatasetChange={() => {}} single />
                         </Grid>
                     ) : run_ids.map(runId => (
                         <Grid size={{ xs: 12, md: run_ids.length === 1 ? 12 : 6 }} key={runId}>

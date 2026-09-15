@@ -1,6 +1,20 @@
 import { Chip, Stack } from "@mui/material";
 
 import { formatValue, metricValue } from "../../utils/metricFormat";
+import type { MetricVariant } from "../../utils/metricFormat";
+
+interface CohortRow {
+    status: string;
+    A: MetricVariant | null;
+    B: MetricVariant | null;
+}
+
+interface Metric {
+    key: string;
+    label: string;
+    formatter: string;
+    better: "higher" | "lower" | null;
+}
 
 const WRAPPING_LABEL_SX = {
     height: "auto",
@@ -21,18 +35,20 @@ const WRAPPING_LABEL_WITH_VALUES_SX = {
     },
 };
 
+interface WhatMovedStripProps {
+    row: CohortRow;
+    metrics: Metric[];
+}
+
 /**
  * One badge per cohort metric, showing how far B moved from A on this one
  * sample, plus the raw A/B values. Colour is a directional judgement about
  * this row (success/error), never tokens.variant — those colours are
  * reserved for per-variant series, and this is neither.
- *
- * @param {object} row One CohortResponse row ({status, A, B}).
- * @param {object[]} metrics CohortResponse.metrics (the registry).
  */
-export default function WhatMovedStrip({ row, metrics }) {
+export default function WhatMovedStrip({ row, metrics }: WhatMovedStripProps) {
     return (
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: "wrap" }}>
             {metrics.map((metric) => {
                 const a = metricValue(row.A, metric.key);
                 const b = metricValue(row.B, metric.key);

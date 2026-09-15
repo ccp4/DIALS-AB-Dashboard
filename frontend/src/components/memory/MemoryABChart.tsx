@@ -5,10 +5,10 @@ import { STANDARD_DATA_ZOOM, summaryBoxGraphic, parityScatterSkeleton } from "..
 import { niceCeil } from "../../utils/chartScale";
 import { abSummary } from "../../utils/abSummary";
 
-interface MemoryRow {
+export interface MemoryRow {
     label: string;
-    A: number;
-    B: number;
+    A: number | null;
+    B: number | null;
 }
 
 interface MemoryABChartProps {
@@ -62,10 +62,10 @@ function MemoryABChart({ data }: MemoryABChartProps) {
                 const points = runData
                     .filter(d => Number.isFinite(d.A) && Number.isFinite(d.B))
                     .map(d => ({
-                        value: [d.A, d.B],
+                        value: [d.A!, d.B!],
                         label: d.label,
-                        A: d.A,
-                        B: d.B,
+                        A: d.A!,
+                        B: d.B!,
                     }));
 
                 if (!points.length) {

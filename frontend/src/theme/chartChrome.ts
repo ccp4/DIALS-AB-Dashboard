@@ -34,12 +34,9 @@ export function noDataGraphic(text = "No data"): object[] {
 }
 
 /**
- * The real-axes/identity-line shape for an empty A/B parity scatter (A on
- * x-axis, B on y-axis, no legend to fabricate) before any run is selected —
- * shared by `MemoryABChart`, `CC_halfOverallChart` and `CumulativeTimeTaken`,
- * whose populated charts already mirror this same axis/identity-line shape.
- * `axisLabelFormatter`, if given, applies to both axes (e.g. inverse-square-d
- * → Å for CC½).
+ * The real-axes/identity-line shape for an empty A/B parity scatter, before
+ * any run is selected — shared by `MemoryABChart`, `CC_halfOverallChart` and
+ * `CumulativeTimeTaken`. `axisLabelFormatter`, if given, applies to both axes.
  */
 interface ParityScatterSkeletonOptions {
     title: string;
@@ -90,14 +87,12 @@ export function parityScatterSkeleton({ title, xName, yName, axisLabelFormatter 
 }
 
 /**
- * The boxed regression-summary callout used by every A/B parity chart —
- * position/width/style default to the shape that fits a bottom-right corner
- * without colliding with a dataZoom slider, but all three are overridable
- * per call site (e.g. MetricScatter keeps its own top-right placement).
- * Height is derived from the number of lines in `text`, not hardcoded.
+ * The boxed regression-summary callout used by every A/B parity chart.
+ * Position/width/style default to a bottom-right fit clear of a dataZoom
+ * slider, but are overridable per call site. Height derives from `text`'s line count.
  */
 interface SummaryBoxOverrides {
-    position?: Record<string, string>;
+    position?: Record<string, string | number>;
     width?: number;
     style?: Record<string, unknown>;
 }

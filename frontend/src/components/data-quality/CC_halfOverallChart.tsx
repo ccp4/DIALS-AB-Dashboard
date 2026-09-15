@@ -23,7 +23,7 @@ function formatD(v: number | null | undefined): string {
     return d != null ? d.toFixed(2) : "—";
 }
 
-interface RunCCHalf {
+export interface RunCCHalf {
     A: [string, number][];
     B: [string, number][];
 }
