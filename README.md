@@ -20,12 +20,12 @@ chmod +x setup.sh
 
 ## What this dashboard shows
 
-Every run compares two DIALS builds: **A**, the current main build, and **B**, the version under
-test. Each page shows which A and B builds were actually used, and warns if you've
-selected runs whose A builds differ, since a difference you see could then be baseline drift rather
-than an effect of B.
+This dashboard visualises runs produced by the [xia2-irrmc-h5](https://github.com/dagewa/xia2-irrmc-h5)
+scripts. Every run compares two DIALS builds — **A**, the current main build, and **B**, whatever
+change you want to test against it (a branch, a PR, an experimental feature) — across the same
+datasets, so you can see where B improves on A and where it doesn't.
 
-A few things to note:
+A few things worth knowing about the metrics:
 
 - Lower is better for memory and runtime; a lower resolution limit is better for image quality.
   Some metrics don't have a defined direction at all.
@@ -49,8 +49,9 @@ Select one or more runs to compare peak memory and processing time.
 
 Select one or more runs to compare merging statistics per dataset.
 
-- **Raw / Comparison** — pick a dataset to see its merging-statistics curves (e.g. CC½ against
-  resolution), switching between the two data sources with a dropdown.
+- **Resolution / Merging stats** — pick a dataset to switch between its CC½-vs-resolution curve
+  (from `dials.estimate_resolution`) and its merging-statistics curves (from
+  `xia2.compare_merging_stats`).
 - **CC½ resolution** — per run, the resolution cutoff DIALS reached for A vs B, one point per
   dataset.
 
