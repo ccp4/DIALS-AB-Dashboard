@@ -1,10 +1,13 @@
 from pathlib import Path
 from workspace.base import Workspace
 import json
+import logging
 import re
 from bisect import bisect_left
 
 from runs.dataset_id import DatasetSampleId
+
+logger = logging.getLogger(__name__)
 
 
 def _dataset_sample_path(run_id: str, dataset: str) -> str:
@@ -156,11 +159,17 @@ def extract_xia2_timing(workspace: Workspace, run_id: str, dataset: str):
         if not workspace.exists(path):
             continue
 
-        timing = json.loads(workspace.read_text(path))
+        try:
+            timing = json.loads(workspace.read_text(path))
+        except json.JSONDecodeError:
+            logger.warning("Skipping corrupt JSON at %s", path)
+            continue
+
         events = []
 
         for item in timing:
             if "time_start" not in item or "time_end" not in item or "runtime" not in item:
+                logger.warning("Skipping malformed timing event in %s: %r", path, item)
                 continue
 
             events.append({
@@ -262,9 +271,15 @@ def _extract_json_files(workspace: Workspace, run_id: str, names: list[str]) -> 
         if f.name not in wanted:
             continue
 
+        try:
+            parsed = json.loads(workspace.read_text(f))
+        except json.JSONDecodeError:
+            logger.warning("Skipping corrupt JSON at %s", f)
+            continue
+
         td = _sample_key(f)
         result.setdefault(td, {})
-        result[td][f.name] = json.loads(workspace.read_text(f))
+        result[td][f.name] = parsed
 
     return result
 
@@ -285,10 +300,16 @@ def extract_xia2_cc_half(workspace: Workspace, run_id: str) -> dict:
             if not workspace.exists(path):
                 continue
 
-            data = json.loads(workspace.read_text(path))
+            try:
+                data = json.loads(workspace.read_text(path))
+            except json.JSONDecodeError:
+                logger.warning("Skipping corrupt JSON at %s", path)
+                continue
+
             traces = data.get("cc_half", {}).get("data", [])
             trace = next((t for t in traces if str(t.get("name", "")).startswith("d_min")), None)
             if trace is None or not trace.get("x"):
+                logger.warning("No d_min marker found in %s", path)
                 continue
 
             result[variant].append([composite_id, trace["x"][0]])

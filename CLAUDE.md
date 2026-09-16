@@ -54,9 +54,10 @@ First-time setup (creates the venv, installs deps, copies `.env` files, prompts 
 ./setup.sh
 ```
 
-Lint and production build:
+Typecheck, lint, and production build:
 
 ```bash
+npm --prefix frontend run typecheck
 npm --prefix frontend run lint
 npm --prefix frontend run build
 ```

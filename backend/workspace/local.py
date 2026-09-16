@@ -4,6 +4,8 @@ class LocalWorkspace:
 
     def __init__(self, root: str):
         self.root = Path(root).resolve()
+        if not self.root.is_dir():
+            raise ValueError(f"WORKSPACE_DIR '{root}' is not a directory")
 
     def resolve(self, path: str) -> Path:
         candidate = (self.root / path).resolve()
@@ -15,7 +17,7 @@ class LocalWorkspace:
     def exists(self, path: str) -> bool:
         try:
             return self.resolve(path).exists()
-        except ValueError:
+        except (ValueError, OSError):
             return False
 
     def list_dirs(self, path: str | None = None) -> list[str]:
