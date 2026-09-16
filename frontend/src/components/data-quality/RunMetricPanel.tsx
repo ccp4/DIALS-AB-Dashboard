@@ -135,6 +135,9 @@ function RunMetricPanel({ title, run_ids, metric }: RunMetricPanelProps) {
                         </Grid>
                     ) : run_ids.map(runId => (
                         <Grid size={{ xs: 12, md: run_ids.length === 1 ? 12 : 6 }} key={runId}>
+                            <Typography variant="subtitle1" gutterBottom>
+                                {runId}
+                            </Typography>
                             <RunPanel
                                 runId={runId}
                                 metric={metric}

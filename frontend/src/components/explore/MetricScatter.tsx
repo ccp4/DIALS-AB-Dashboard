@@ -20,6 +20,7 @@ interface CohortRow {
 interface Metric {
     key: string;
     label: string;
+    unit: string;
     formatter: string;
     better: "higher" | "lower" | null;
 }
@@ -69,6 +70,7 @@ function formatAxisTick(value: number): string {
  * identity line, a linear fit and a summary callout.
  */
 function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }: MetricScatterProps) {
+    const axisLabel = (variant: "A" | "B") => metric.unit ? `${variant} (${metric.unit})` : variant;
     const rawPoints: RawPoint[] = rows.map((row) => ({
         sampleId: `${row.dataset}/${row.sample}`,
         A: metricValue(row.A, metric.key),
@@ -184,7 +186,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
 
         xAxis: {
             type: "value",
-            name: "A",
+            name: axisLabel("A"),
             nameLocation: "middle",
             nameGap: 22,
             nameTextStyle: { color: tokens.variant.A, fontWeight: 600 },
@@ -196,7 +198,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
 
         yAxis: {
             type: "value",
-            name: "B",
+            name: axisLabel("B"),
             nameLocation: "middle",
             nameGap: 32,
             nameTextStyle: { color: tokens.variant.B, fontWeight: 600 },

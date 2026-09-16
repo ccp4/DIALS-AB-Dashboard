@@ -21,6 +21,7 @@ interface CohortRow {
 interface Metric {
     key: string;
     label: string;
+    unit: string;
     formatter: string;
     better: "higher" | "lower" | null;
 }
