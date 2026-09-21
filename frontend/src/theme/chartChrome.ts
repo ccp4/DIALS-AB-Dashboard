@@ -100,13 +100,23 @@ interface SummaryBoxOverrides {
 export function summaryBoxGraphic(text: string, overrides: SummaryBoxOverrides = {}) {
     const {
         position = { right: "12%", bottom: "22%" },
-        width = 150,
         style = {},
     } = overrides;
 
+    // PAD is applied on all four sides. The text child is inset by it at the
+    // top and left, so the height and width have to allow for it twice or the
+    // last line sits flush against the border.
+    const PAD = 10;
     const lineHeight = 20;
-    const lines = text.split("\n").length;
-    const height = lines * lineHeight + 10;
+    const lines = text.split("\n");
+    const height = lines.length * lineHeight + PAD * 2;
+
+    // ECharts can't measure the text for us here, so approximate: ~0.55em is a
+    // fair average advance for the annotation font. Floored at the old fixed
+    // 150 so short callouts keep their previous size.
+    const longest = Math.max(...lines.map(line => line.length));
+    const width = overrides.width
+        ?? Math.max(150, Math.ceil(longest * tokens.font.size.annotation * 0.55) + PAD * 2);
 
     return [
         {
@@ -127,8 +137,8 @@ export function summaryBoxGraphic(text: string, overrides: SummaryBoxOverrides =
                 },
                 {
                     type: "text",
-                    left: 10,
-                    top: 10,
+                    left: PAD,
+                    top: PAD,
                     style: {
                         text,
                         font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
