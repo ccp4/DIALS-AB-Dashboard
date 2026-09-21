@@ -18,9 +18,13 @@ function invSqToD(v: number | null | undefined): number | null {
     return 1 / Math.sqrt(v);
 }
 
+// 4 d.p. rather than the 2 conventionally used for a resolution limit: the
+// A/B differences here are frequently smaller than 0.01 Å, and at 2 d.p. about
+// half of all pairs rendered as identical while in fact differing — making the
+// callout's win counts look inconsistent with the numbers on screen.
 function formatD(v: number | null | undefined): string {
     const d = invSqToD(v);
-    return d != null ? d.toFixed(2) : "—";
+    return d != null ? d.toFixed(4) : "—";
 }
 
 export interface RunCCHalf {
