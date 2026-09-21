@@ -10,6 +10,11 @@ import { abSummary } from "../../utils/abSummary";
 import { formatValue, metricValue } from "../../utils/metricFormat";
 import type { MetricVariant } from "../../utils/metricFormat";
 
+// Grid-view bottom margin: x-axis tick labels plus the axis name at nameGap 22.
+// Shared by the grid and the summary callout's offset so the two can't drift
+// apart and overlap again.
+const GRID_BOTTOM = 44;
+
 interface CohortRow {
     dataset: string;
     sample: string;
@@ -157,17 +162,17 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
     const option = {
         title: { text: metric.label, left: "center" },
 
-        // Grid view: bottom-centered, clear of the plot's own corner. Expanded
-        // view: bottom-right — summaryBoxGraphic's default offset already
-        // clears the dataZoom slider.
+        // Bottom-right inside the plot box, matching the Memory and Data
+        // Quality parity charts. Expanded view takes summaryBoxGraphic's
+        // default offset, which already clears the dataZoom slider; the grid
+        // view has no slider, so it sits lower, just above the x-axis labels.
         graphic: !points.length
             ? noDataGraphic()
             : summaryLines.length
                 ? enableZoom
                     ? summaryBoxGraphic(summaryLines.join("\n"))
                     : summaryBoxGraphic(summaryLines.join("\n"), {
-                          position: { left: "center", bottom: 4 },
-                          width: 200,
+                          position: { right: 28, bottom: GRID_BOTTOM + 16 },
                       })
                 : undefined,
 
@@ -209,11 +214,12 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
         },
 
         // Fixed margins, not containLabel, so every panel gets an identical
-        // plot-box shape regardless of tick/summary length. Sized for the
-        // worst case (3 summary lines); expanded (zoom) needs extra bottom room.
+        // plot-box shape regardless of tick length. The summary sits inside the
+        // plot box, so the bottom margin only has to clear the x-axis labels
+        // and name; expanded (zoom) needs extra room for the dataZoom slider.
         grid: enableZoom
             ? { left: 56, right: 20, top: 44, bottom: 110 }
-            : { left: 56, right: 20, top: 44, bottom: 92 },
+            : { left: 56, right: 20, top: 44, bottom: GRID_BOTTOM },
         dataZoom: enableZoom ? STANDARD_DATA_ZOOM : undefined,
         series,
     };
