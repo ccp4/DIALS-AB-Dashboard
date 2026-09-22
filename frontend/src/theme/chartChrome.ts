@@ -16,6 +16,14 @@ export const STANDARD_DATA_ZOOM = [
 export const STANDARD_LEGEND = { top: 30 };
 
 /**
+ * A `graphic` element's default `z` puts it *under* the grid, so splitlines
+ * paint over any text it draws. `z: 1` lifts it clear of them while staying
+ * below the series default of 2 — data still draws on top of the callout,
+ * which is the wanted order: gridlines suppressed, points not hidden.
+ */
+const ABOVE_GRIDLINES = 1;
+
+/**
  * The centred watermark drawn over an empty plot area — a chart with real
  * axes/legend but nothing plotted needs this to read as "waiting for a
  * selection" rather than "failed to load."
@@ -25,6 +33,7 @@ export function noDataGraphic(text = "No data"): object[] {
         type: "text",
         left: "center",
         top: "middle",
+        z: ABOVE_GRIDLINES,
         style: {
             text,
             fill: tokens.ink.muted,
@@ -88,65 +97,38 @@ export function parityScatterSkeleton({ title, xName, yName, axisLabelFormatter 
 
 /**
  * The boxed regression-summary callout used by every A/B parity chart.
- * Position/width/style default to a bottom-right fit clear of a dataZoom
- * slider, but are overridable per call site. Height derives from `text`'s line count.
+ * Position defaults to a bottom-right fit clear of a dataZoom slider, but is
+ * overridable per call site.
+ *
+ * One `text` element rather than a rect with a text child: zrender draws a
+ * text's `backgroundColor`/`border*`/`padding` as a box measured from the
+ * glyphs themselves, so the box can't be wider than the text it holds. The
+ * rect-plus-child version had to guess a width from the character count and
+ * consistently guessed high.
  */
 interface SummaryBoxOverrides {
     position?: Record<string, string | number>;
-    width?: number;
-    style?: Record<string, unknown>;
 }
 
-export function summaryBoxGraphic(text: string, overrides: SummaryBoxOverrides = {}) {
-    const {
-        position = { right: "12%", bottom: "22%" },
-        style = {},
-    } = overrides;
-
-    // PAD is applied on all four sides. The text child is inset by it at the
-    // top and left, so the height and width have to allow for it twice or the
-    // last line sits flush against the border.
-    const PAD = 10;
-    const lineHeight = 20;
-    const lines = text.split("\n");
-    const height = lines.length * lineHeight + PAD * 2;
-
-    // ECharts can't measure the text for us here, so approximate: ~0.55em is a
-    // fair average advance for the annotation font. Floored at the old fixed
-    // 150 so short callouts keep their previous size.
-    const longest = Math.max(...lines.map(line => line.length));
-    const width = overrides.width
-        ?? Math.max(150, Math.ceil(longest * tokens.font.size.annotation * 0.55) + PAD * 2);
-
+export function summaryBoxGraphic(text: string, { position = { right: "12%", bottom: "22%" } }: SummaryBoxOverrides = {}) {
     return [
         {
-            type: "group",
+            type: "text",
             ...position,
-            children: [
-                {
-                    type: "rect",
-                    shape: { width, height, r: 5 },
-                    style: {
-                        fill: tokens.surface.overlay,
-                        stroke: tokens.brand.primary,
-                        lineWidth: 1.5,
-                        shadowBlur: 5,
-                        shadowColor: tokens.surface.border,
-                        ...style,
-                    },
-                },
-                {
-                    type: "text",
-                    left: PAD,
-                    top: PAD,
-                    style: {
-                        text,
-                        font: `${tokens.font.size.annotation}px ${tokens.font.family}`,
-                        fill: tokens.ink.base,
-                        lineHeight,
-                    },
-                },
-            ],
+            z: ABOVE_GRIDLINES,
+            style: {
+                text,
+                font: `${tokens.font.size.label}px ${tokens.font.family}`,
+                fill: tokens.ink.base,
+                lineHeight: Math.round(tokens.font.size.label * 1.5),
+                padding: 8,
+                backgroundColor: tokens.surface.overlay,
+                borderColor: tokens.brand.primary,
+                borderWidth: 1.5,
+                borderRadius: 5,
+                shadowBlur: 5,
+                shadowColor: tokens.surface.border,
+            },
         },
     ];
 }

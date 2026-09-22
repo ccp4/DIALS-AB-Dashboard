@@ -22,7 +22,6 @@ const font = {
     size: {
         title: 16,
         label: 12,
-        annotation: 14,
     },
 };
 

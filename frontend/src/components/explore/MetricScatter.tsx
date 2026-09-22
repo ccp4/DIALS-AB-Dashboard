@@ -15,6 +15,13 @@ import type { MetricVariant } from "../../utils/metricFormat";
 // apart and overlap again.
 const GRID_BOTTOM = 44;
 
+// Clearance between the summary callout's lower edge and the x-axis line, for
+// the grid view only. Every other parity chart inherits summaryBoxGraphic's
+// default `bottom: "22%"` — a share of canvas height, tens of pixels on any
+// real chart. This offset is absolute and stacks on GRID_BOTTOM, so it has to
+// be stated outright or the callout sits visibly lower than everywhere else.
+const CALLOUT_CLEARANCE = 36;
+
 interface CohortRow {
     dataset: string;
     sample: string;
@@ -172,7 +179,7 @@ function MetricScatter({ rows, metric, style, enableZoom = false, onPointClick }
                 ? enableZoom
                     ? summaryBoxGraphic(summaryLines.join("\n"))
                     : summaryBoxGraphic(summaryLines.join("\n"), {
-                          position: { right: 28, bottom: GRID_BOTTOM + 16 },
+                          position: { right: 28, bottom: GRID_BOTTOM + CALLOUT_CLEARANCE },
                       })
                 : undefined,
 
