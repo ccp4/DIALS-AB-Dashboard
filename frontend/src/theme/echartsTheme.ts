@@ -73,12 +73,20 @@ echarts.registerTheme("dials", {
     logAxis: axis,
     timeAxis: axis,
 
+    // The legend text is deliberately the same size as an axis label. What made
+    // the legend look heavier than the axes was never the font — it was ECharts
+    // 6's marker and spacing defaults (a 25x14 swatch, 5px padding), so those
+    // are what's trimmed here.
     legend: {
         textStyle: {
             color: tokens.ink.base,
             fontSize: tokens.font.size.label,
         },
         inactiveColor: tokens.ink.muted,
+        itemWidth: 16,
+        itemHeight: 10,
+        itemGap: 8,
+        padding: 4,
     },
 
     tooltip: {
